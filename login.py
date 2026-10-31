@@ -170,6 +170,7 @@ class VentanaLogin(QMainWindow):
         # Botón para registrar 
         self.btn_registrar = QPushButton("Registrar")
         self.btn_registrar.setFixedSize(200, 40)
+        self.btn_registrar.clicked.connect(self.abrir_registro)
         self.panel_layout.addWidget(self.btn_registrar, alignment=Qt.AlignCenter)
 
         self.panel_layout.addStretch(1)
@@ -203,6 +204,13 @@ class VentanaLogin(QMainWindow):
         else:
             ventana_error = VentanaError(self)
             ventana_error.exec_()
+
+    def abrir_registro(self):
+        from modales.ventana_registro import VentanaRegistro
+        
+        self.ventana_registro = VentanaRegistro(ventana_login=self)
+        self.ventana_registro.showMaximized()
+        self.hide()  # <--- Ocultamos el login al abrir el registro
 
     def centrar_ventana(self):
         qr = self.frameGeometry()

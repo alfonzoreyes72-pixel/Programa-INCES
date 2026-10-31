@@ -1,6 +1,7 @@
 import sys
 import os
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QHBoxLayout, QVBoxLayout, QWidget, QPushButton, QGraphicsDropShadowEffect, QFrame, QLineEdit)
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QHBoxLayout, QVBoxLayout, QWidget,
+                            QPushButton, QGraphicsDropShadowEffect, QFrame, QLineEdit, QComboBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
 
@@ -110,6 +111,16 @@ class VentanaRegistro(QMainWindow):
         self.txt_nueva_contrasena.setFixedSize(350, 40)
         self.panel_layout.addWidget(self.txt_nueva_contrasena, alignment=Qt.AlignCenter)
 
+        self.panel_layout.addSpacing(20)
+
+        # Selector desplegable (ComboBox) con efecto de marcador de posición dinámico
+        self.combo_rol = QComboBox()
+        self.combo_rol.addItems(["Seleccione su rol", "Administrador", "Trabajador", "Operativo"])
+        self.combo_rol.setFixedSize(350, 40)
+        self.actualizar_estilo_combo()
+        self.combo_rol.currentIndexChanged.connect(self.actualizar_estilo_combo)
+        self.panel_layout.addWidget(self.combo_rol, alignment=Qt.AlignCenter)
+
         self.panel_layout.addSpacing(30)
 
         # Botón para completar el registro
@@ -125,27 +136,13 @@ class VentanaRegistro(QMainWindow):
         # Botón para volver al login
         self.btn_volver = QPushButton("Volver")
         self.btn_volver.setFixedSize(200, 40)
-        self.btn_volver.setStyleSheet("""
-            QPushButton {
-                background-color: #6c757d;
-                color: white;
-                border-radius: 20px;
-                border: 2px solid #6c757d;
-                padding: 5px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5a6268;
-                border: 2px solid #5a6268;
-            }
-        """)
+        self.btn_volver.setStyleSheet(estilo_botones)
         self.btn_volver.setCursor(Qt.PointingHandCursor)
         self.btn_volver.clicked.connect(self.regresar_login)
         self.panel_layout.addWidget(self.btn_volver, alignment=Qt.AlignCenter)
 
         # Efectos de sombra para los elementos internos
-        for widget in [self.txt_nuevo_usuario, self.txt_nueva_contrasena, self.btn_guardar, self.btn_volver]:
+        for widget in [self.txt_nuevo_usuario, self.txt_nueva_contrasena, self.combo_rol, self.btn_guardar, self.btn_volver]:
             efecto_sombra = QGraphicsDropShadowEffect()
             efecto_sombra.setBlurRadius(20)
             efecto_sombra.setXOffset(5)
@@ -156,15 +153,46 @@ class VentanaRegistro(QMainWindow):
         # Añadimos el panel grande al layout principal con márgenes
         self.layout_principal.addWidget(self.registro_panel)
 
+    def actualizar_estilo_combo(self):
+        """Método dinámico para mostrar el texto en gris claro con negritas o texto negro normal según la selección"""
+        if self.combo_rol.currentIndex() == 0:
+            self.combo_rol.setStyleSheet("""
+                QComboBox {
+                    background-color: #e0dede;
+                    border: none;
+                    border-radius: 20px;
+                    padding-left: 25px;
+                    padding-right: 25px;
+                    color: #777777;       /* Color gris para que vaya a juego */
+                    font-size: 16px;
+                    font-weight: bold;    /* ¡Letras en negritas como pediste! */
+                }
+                QComboBox::drop-down {
+                    border: 0px;
+                }
+            """)
+        else:
+            self.combo_rol.setStyleSheet("""
+                QComboBox {
+                    background-color: #e0dede;
+                    border: none;
+                    border-radius: 20px;
+                    padding-left: 25px;
+                    padding-right: 25px;
+                    color: black;         /* Color negro al seleccionar un rol real */
+                    font-size: 16px;
+                    font-weight: bold;    /* Negrita */
+                }
+                QComboBox::drop-down {
+                    border: 0px;
+                }
+            """)
+
     def procesar_registro(self):
-        # Lógica de registro temporal (puedes adaptarla después con tu base de datos o lógica)
         if self.txt_nuevo_usuario.text() != "" and self.txt_nueva_contrasena.text() != "":
-            from ventana_principal import VentanaPrincipal
-            # Abre la ventana principal y oculta el login original vinculado
-            self.ventana_principal = VentanaPrincipal(ventana_login=self.ventana_login)
-            self.ventana_principal.showMaximized()
+            # Al completar el registro con éxito, volvemos al login
             if self.ventana_login:
-                self.ventana_login.hide()
+                self.ventana_login.show()
             self.close()
         else:
             print("Complete los campos para registrar")
@@ -177,10 +205,12 @@ class VentanaRegistro(QMainWindow):
     def limpiar_formulario(self):
         self.txt_nuevo_usuario.clear()
         self.txt_nueva_contrasena.clear()
+        self.combo_rol.setCurrentIndex(0)
+        self.actualizar_estilo_combo()
         self.txt_nuevo_usuario.setFocus()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = VentanaRegistro()
-    ventana.show()
+    ventana.showMaximized()
     sys.exit(app.exec_())
