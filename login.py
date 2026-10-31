@@ -6,6 +6,8 @@ from PyQt5.QtSvg import QSvgWidget
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QPixmap
 
+from modales.ventana_error import VentanaError
+
 class VentanaLogin(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -24,7 +26,7 @@ class VentanaLogin(QMainWindow):
         self.layout_principal.setSpacing(0)
 
         # =================================================================
-        # ZONA IZQUIERDA: Aquí irá el Logo y Texto Institucional más adelante
+        # ZONA IZQUIERDA: Logo y adorno institucional
         # =================================================================
         self.left_container = QWidget()
         
@@ -33,11 +35,10 @@ class VentanaLogin(QMainWindow):
         self.left_master_layout.setContentsMargins(0, 0, 0, 0)
         self.left_master_layout.setSpacing(0)
 
-        # Sub-contenedor para el Logo (este sí tendrá márgenes para centrarlo e independizarlo)
+        # Sub-contenedor para el Logo
         self.logo_container = QWidget()
         self.logo_layout = QVBoxLayout(self.logo_container)
         self.logo_layout.setAlignment(Qt.AlignCenter)
-        # Le damos un margen superior y derecho para empujar y equilibrar el logo visualmente
         self.logo_layout.setContentsMargins(100, 50, 50, 0)
 
         # IMPORTACION DEL LOGO
@@ -48,26 +49,22 @@ class VentanaLogin(QMainWindow):
         self.label_imagen.setAlignment(Qt.AlignCenter)
         self.logo_layout.addWidget(self.label_imagen)
 
-        # Añadimos el contenedor del logo al layout maestro izquierdo
         self.left_master_layout.addWidget(self.logo_container, stretch=1)
 
-        # ELEMENTOS GRAFICOS DE LA ESQUINA (Fuera del contenedor del logo)
+        # ELEMENTOS GRAFICOS DE LA ESQUINA
         self.adorno_esquina = QSvgWidget(os.path.join(directorio, 'imagenes', 'adorno.svg'))
         self.adorno_esquina.setFixedSize(300, 215)
-        
-        # Lo acoplamos al fondo a la izquierda y abajo, ignorando los márgenes del logo
         self.left_master_layout.addWidget(self.adorno_esquina, alignment=Qt.AlignLeft | Qt.AlignBottom)
 
         # Añadimos el bloque izquierdo al diseño principal
         self.layout_principal.addWidget(self.left_container, stretch=1)
 
         # =================================================================
-        # ZONA DERECHA: zona de logueo
+        # ZONA DERECHA: Zona de logueo
         # =================================================================
         self.right_container = QWidget()
         self.right_layout = QVBoxLayout(self.right_container)
         self.right_layout.setAlignment(Qt.AlignCenter)
-        # para que la tarjeta blanca mantenga su distancia del borde de la pantalla.
         self.right_layout.setContentsMargins(50, 50, 100, 50)
 
         # 1. Creamos el Frame que actuará como tarjeta blanca
@@ -76,61 +73,55 @@ class VentanaLogin(QMainWindow):
         self.login_panel.setFixedWidth(380)
         self.login_panel.setFixedHeight(460)
 
-        # QSS con bordes muy redondeados y fondo blanco puro
         self.login_panel.setStyleSheet("""
             QFrame#loginPanel {
                 background-color: #ffffff;
-                border-radius: 40px;  /* Curvatura pronunciada */
+                border-radius: 40px;
             }
         """)
 
-        # 2. Sombra difuminada muy suave hacia abajo y la derecha (Efecto Drop Shadow)
+        # 2. Sombra difuminada
         self.shadow = QGraphicsDropShadowEffect(self)
         self.shadow.setBlurRadius(30)
-        self.shadow.setColor(QColor(0, 0, 0, 70)) # Sombra negra sutil
-        self.shadow.setOffset(10, 10) # Desplazamiento en X e Y
+        self.shadow.setColor(QColor(0, 0, 0, 70))
+        self.shadow.setOffset(10, 10)
         self.login_panel.setGraphicsEffect(self.shadow)
 
         # 3. Layout interno del panel blanco 
         self.panel_layout = QVBoxLayout(self.login_panel)
         self.panel_layout.setContentsMargins(40, 50, 40, 50)
-        self.panel_layout.addStretch() # Mantiene el interior limpio por ahora
-
-        # Añadimos la zona derecha al layout principal
-        self.layout_principal.addWidget(self.right_container, stretch=1)
-
-        self.panel_layout.addStretch(1)
+        self.panel_layout.addStretch()
 
         # 4. ENTRADA DE DATOS (estilos)
         estilo_inputs = """
             QLineEdit {
-                background-color: #e0dede;  /* Color gris claro del fondo del input */
-                border: none;               /* Quitamos el borde por defecto */
-                border-radius: 20px;        /* Mitad de la altura para efecto cápsula */
-                padding-left: 25px;         /* Margen interno izquierdo para el texto */
+                background-color: #e0dede;
+                border: none;
+                border-radius: 20px;
+                padding-left: 25px;
                 padding-right: 25px;
-                color: black;               /* Color del texto escrito */
-                font-size: 16px;            /* Tamaño de la letra */
+                color: black;
+                font-size: 16px;
                 font-weight: bold;
             }
             """
         
         estilo_botones = """
             QPushButton {
-                background-color: #0833a2; /* Color de fondo */
-                color: white;               /* Color del texto */
-                border-radius: 20px;        /* El radio define la curvatura */
-                border: 2px solid #0833a2;  /* Borde opcional */
-                padding: 5px;               /*Separacion entre el texto y el borde del boton*/
-                font-size: 16px;            /* Tamaño de la letra */
+                background-color: #0833a2;
+                color: white;
+                border-radius: 20px;
+                border: 2px solid #0833a2;
+                padding: 5px;
+                font-size: 16px;
                 font-weight: bold;
             }
     
             QPushButton:hover {
-                background-color: #3150ff; /* Cambio de color al pasar el ratón */
-                border: 2px solid #3150ff
+                background-color: #3150ff;
+                border: 2px solid #3150ff;
             }
-                """ #agregar estilo al boton
+                """
         
         # Etiqueta de texto (login)
         self.label_login = QLabel("Login")
@@ -140,8 +131,8 @@ class VentanaLogin(QMainWindow):
                 font-weight: bold;
                 color: #000000;
                 font-family: 'Arial', sans-serif;
-                background: transparent; /* Evita que tome fondos grises de layouts traseros */
-                margin-bottom: 10px;     /* Despegamos un poco el título de los inputs */
+                background: transparent;
+                margin-bottom: 10px;
             }
         """)
         self.label_login.setAlignment(Qt.AlignCenter)
@@ -168,30 +159,28 @@ class VentanaLogin(QMainWindow):
 
         self.panel_layout.addStretch(1)
 
-        # boton para ingresar
-        self.btn_ingresar = QPushButton("Ingresar") #titulo del boton
-        self.btn_ingresar.setFixedSize(200, 40) #tamaño del boton
-        self.btn_ingresar.clicked.connect(self.validar_usuario) #acccion del boton
-        self.panel_layout.addWidget(self.btn_ingresar, alignment=Qt.AlignCenter) #centrado del boton
+        # Botón para ingresar
+        self.btn_ingresar = QPushButton("Ingresar")
+        self.btn_ingresar.setFixedSize(200, 40)
+        self.btn_ingresar.clicked.connect(self.validar_usuario)
+        self.panel_layout.addWidget(self.btn_ingresar, alignment=Qt.AlignCenter)
 
         self.panel_layout.addSpacing(15)
 
-        # boton para registrar 
-        self.btn_registrar = QPushButton("Registrar") #titulo del boton
-        self.btn_registrar.setFixedSize(200, 40) #tamaño del boton
-        #self.btn_registrar.clicked.connect(None) #acccion del boton
-        self.panel_layout.addWidget(self.btn_registrar, alignment=Qt.AlignCenter) #centrado del boton
+        # Botón para registrar 
+        self.btn_registrar = QPushButton("Registrar")
+        self.btn_registrar.setFixedSize(200, 40)
+        self.panel_layout.addWidget(self.btn_registrar, alignment=Qt.AlignCenter)
 
         self.panel_layout.addStretch(1)
 
         # Bucle para estilos de botones
-        for btn_efectos in [self.btn_ingresar, self.btn_registrar]:
-            btn_efectos.setStyleSheet(estilo_botones)
-            btn_efectos.setCursor(Qt.PointingHandCursor)
+        for btn in [self.btn_ingresar, self.btn_registrar]:
+            btn.setStyleSheet(estilo_botones)
+            btn.setCursor(Qt.PointingHandCursor)
 
         # Bucle para efectos de sombra
         for widget in [self.txt_usuario, self.txt_contraseña, self.btn_ingresar, self.btn_registrar]:
-            # Creamos un objeto de sombra NUEVO en cada iteración del bucle
             efecto_sombra = QGraphicsDropShadowEffect()
             efecto_sombra.setBlurRadius(20)
             efecto_sombra.setXOffset(5)
@@ -199,7 +188,7 @@ class VentanaLogin(QMainWindow):
             efecto_sombra.setColor(QColor(0, 0, 0, 70))
             widget.setGraphicsEffect(efecto_sombra)
 
-        # Añadimos la tarjeta al layout derecho
+        # Añadimos la tarjeta al layout derecho y el contenedor derecho al layout principal UNA SOLA VEZ
         self.right_layout.addWidget(self.login_panel)
         self.layout_principal.addWidget(self.right_container, stretch=1)
 
@@ -208,21 +197,23 @@ class VentanaLogin(QMainWindow):
         if self.txt_usuario.text() == "a" and self.txt_contraseña.text() == "a":
             from ventana_principal import VentanaPrincipal
 
-            # Pasamos 'self' (el login actual) para conservarlo oculto en memoria sin afectar recursos
             self.ventana_principal = VentanaPrincipal(ventana_login=self)
             self.ventana_principal.showMaximized() 
-            
-            # Ocultamos el login en lugar de destruirlo
             self.hide() 
-
         else:
-            print("Credenciales incorrectas")
+            ventana_error = VentanaError(self)
+            ventana_error.exec_()
 
     def centrar_ventana(self):
         qr = self.frameGeometry()
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
         self.move(qr.topLeft())
+
+    def limpiar_formulario(self):
+        self.txt_usuario.clear()
+        self.txt_contraseña.clear()
+        self.txt_usuario.setFocus()
 
 
 if __name__ == "__main__":

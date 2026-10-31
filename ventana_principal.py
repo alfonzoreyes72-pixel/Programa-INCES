@@ -127,7 +127,7 @@ class VentanaPrincipal(QMainWindow):
                 background-color: #d9d9d9;
             }
         """)
-# --- APLICAMOS LA SOMBRA AL BOTON DE CERRAR ---
+    # --- APLICAMOS LA SOMBRA AL BOTON DE CERRAR ---
         efecto_sombra = QGraphicsDropShadowEffect(self)
         efecto_sombra.setBlurRadius(20)
         efecto_sombra.setXOffset(5)
@@ -141,7 +141,7 @@ class VentanaPrincipal(QMainWindow):
         # ==================== ÁREA PRINCIPAL (DERECHA) ====================
         # Creamos el gestor de páginas (Stacked Widget)
         self.stacked_widget = QStackedWidget()
-        self.stacked_widget.setStyleSheet("background-color: #f4f6f9;")
+        self.stacked_widget.setStyleSheet("background-color: #bfbdbe")
 
         # Instanciamos cada vista modular
         self.pagina_inicio = VentanaInicio()
@@ -172,17 +172,6 @@ class VentanaPrincipal(QMainWindow):
         self.cerrando_sesion = True
         self.close()
 
-    def closeEvent(self, event):
-        # Controlamos si se cerró por sesión o si le dieron a la "X" normal
-        if self.cerrando_sesion:
-            if self.ventana_login:
-                self.ventana_login.show()  # Volvemos a mostrar el login que estaba oculto
-            event.accept()
-        else:
-            # Si le dieron a la "X", cerramos toda la aplicación por completo
-            event.accept()
-            QApplication.quit()
-
     def cambiar_pagina(self, indice, boton_activo):
         # 1. Cambiamos la vista en el stacked widget
         self.stacked_widget.setCurrentIndex(indice)
@@ -204,6 +193,18 @@ class VentanaPrincipal(QMainWindow):
                 btn.setChecked(True)
             else:
                 btn.setChecked(False)
+
+    def closeEvent(self, event):
+        # Controlamos si se cerró por sesión o si le dieron a la "X" normal
+        if self.cerrando_sesion:
+            if self.ventana_login:
+                self.ventana_login.limpiar_formulario() # <--- ¡Limpiamos los datos por seguridad!
+                self.ventana_login.show()               # Volvemos a mostrar el login oculto
+            event.accept()
+        else:
+            # Si le dieron a la "X", cerramos toda la aplicación por completo
+            event.accept()
+            QApplication.quit()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
