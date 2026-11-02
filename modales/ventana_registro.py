@@ -115,7 +115,7 @@ class VentanaRegistro(QMainWindow):
 
         # Selector desplegable (ComboBox) con efecto de marcador de posición dinámico
         self.combo_rol = QComboBox()
-        self.combo_rol.addItems(["Seleccione su rol", "Administrador", "Trabajador", "Operativo"])
+        self.combo_rol.addItems(["Seleccione su rol", "Recursos humanos", "Secretario/a"])
         self.combo_rol.setFixedSize(350, 40)
         self.actualizar_estilo_combo()
         self.combo_rol.currentIndexChanged.connect(self.actualizar_estilo_combo)

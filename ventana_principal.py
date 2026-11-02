@@ -1,7 +1,8 @@
 import sys
+import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
-                            QGraphicsDropShadowEffect,QStackedWidget)
-from PyQt5.QtGui import QColor
+                            QGraphicsDropShadowEffect, QStackedWidget)
+from PyQt5.QtGui import QColor, QPixmap
 from PyQt5.QtCore import Qt
 
 from inicio.ventana_inicio import VentanaInicio
@@ -18,6 +19,7 @@ class VentanaPrincipal(QMainWindow):
         super().__init__()
         self.ventana_login = ventana_login  # Guardamos la referencia del login oculto
         self.cerrando_sesion = False        # Bandera para saber si se cerró sesión o se usó la "X"
+        self.menu_expandido = True          # Estado inicial del menú lateral
         
         self.setWindowTitle("Sistema - Ventana Completa")
         
@@ -31,12 +33,50 @@ class VentanaPrincipal(QMainWindow):
         main_layout.setSpacing(0)
         
         # ==================== MENÚ LATERAL IZQUIERDO ====================
-        sidebar = QWidget()
-        sidebar.setStyleSheet("background-color: #163e7a;")
-        sidebar.setFixedWidth(260)  # Ancho fijo para el menú lateral
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(20, 30, 20, 20)
+        self.sidebar = QWidget()
+        self.sidebar.setStyleSheet("background-color: #163e7a;")
+        self.sidebar.setFixedWidth(260)  # Ancho fijo inicial para el menú lateral
+        sidebar_layout = QVBoxLayout(self.sidebar)
+        sidebar_layout.setContentsMargins(15, 20, 15, 20)
         sidebar_layout.setSpacing(12)
+        
+        # --- ENCABEZADO DEL SIDEBAR (Botón menú + Logo autocalculable) ---
+        header_menu_layout = QHBoxLayout()
+        header_menu_layout.setSpacing(10)
+        
+        # Botón Hamburguesa para abrir/cerrar el menú
+        self.btn_toggle = QPushButton("☰")
+        self.btn_toggle.setFixedSize(40, 40)
+        self.btn_toggle.setCursor(Qt.PointingHandCursor)
+        self.btn_toggle.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: white;
+                font-size: 20px;
+                font-weight: bold;
+                border: none;
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background-color: #3b6ba3;
+            }
+        """)
+        self.btn_toggle.clicked.connect(self.toggle_sidebar)
+        header_menu_layout.addWidget(self.btn_toggle)
+        
+        # Logo institucional con ruta autocalculable
+        self.label_logo_sidebar = QLabel()
+        directorio = os.path.dirname(__file__)
+        ruta_logo = os.path.join(directorio, 'imagenes', 'INCES Sede Monagas.svg')
+        if not os.path.exists(ruta_logo):
+            ruta_logo = os.path.join(directorio, 'imagenes', 'logo inces.png')
+            
+        pixmap = QPixmap(ruta_logo)
+        self.label_logo_sidebar.setPixmap(pixmap.scaled(140, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        header_menu_layout.addWidget(self.label_logo_sidebar)
+        
+        sidebar_layout.addLayout(header_menu_layout)
+        sidebar_layout.addSpacing(10)
         
         # Estilo común para los botones del menú lateral
         estilo_boton = """
@@ -50,7 +90,7 @@ class VentanaPrincipal(QMainWindow):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #235299;
+                background-color: #3b6ba3;
                 border-radius: 18px;
             }
             QPushButton:checked {
@@ -59,7 +99,7 @@ class VentanaPrincipal(QMainWindow):
             }
         """
 
-        # Creación individual de los 7 botones del menú lateral
+        # Creación individual de los 8 botones del menú lateral
         self.btn_inicio = QPushButton("  Inicio")
         self.btn_inicio.setStyleSheet(estilo_boton)
         self.btn_inicio.setCheckable(True)       # Permitir que se quede marcado
@@ -112,9 +152,9 @@ class VentanaPrincipal(QMainWindow):
         # Espaciador flexible para empujar el botón de salida hacia el fondo
         sidebar_layout.addStretch()
         
-        # Botón de Cerrar sesión[cite: 1]
-        btn_cerrar = QPushButton("Cerrar sesión")
-        btn_cerrar.setStyleSheet("""
+        # Botón de Cerrar sesión
+        self.btn_cerrar = QPushButton("Cerrar sesión")
+        self.btn_cerrar.setStyleSheet("""
             QPushButton {
                 background-color: white;
                 color: #163e7a;
@@ -127,21 +167,22 @@ class VentanaPrincipal(QMainWindow):
                 background-color: #d9d9d9;
             }
         """)
-    # --- APLICAMOS LA SOMBRA AL BOTON DE CERRAR ---
+        
+        # Aplicamos la sombra al botón de cerrar
         efecto_sombra = QGraphicsDropShadowEffect(self)
         efecto_sombra.setBlurRadius(20)
         efecto_sombra.setXOffset(5)
         efecto_sombra.setYOffset(5)
         efecto_sombra.setColor(QColor(0, 0, 0, 70))
-        btn_cerrar.setGraphicsEffect(efecto_sombra)
+        self.btn_cerrar.setGraphicsEffect(efecto_sombra)
 
-        btn_cerrar.clicked.connect(self.cerrar_sesion)
-        sidebar_layout.addWidget(btn_cerrar)
+        self.btn_cerrar.clicked.connect(self.cerrar_sesion)
+        sidebar_layout.addWidget(self.btn_cerrar)
         
         # ==================== ÁREA PRINCIPAL (DERECHA) ====================
-        # Creamos el gestor de páginas (Stacked Widget)
+        # Creamos el gestor de páginas (Stacked Widget) con tu fondo gris original
         self.stacked_widget = QStackedWidget()
-        self.stacked_widget.setStyleSheet("background-color: #bfbdbe")
+        self.stacked_widget.setStyleSheet("background-color: #bfbdbe;")
 
         # Instanciamos cada vista modular
         self.pagina_inicio = VentanaInicio()
@@ -154,29 +195,60 @@ class VentanaPrincipal(QMainWindow):
         self.pagina_reportes = VentanaReportes()
 
         # Las añadimos al carrusel
-        self.stacked_widget.addWidget(self.pagina_inicio)    # Índice 0 (Se muestra por defecto al abrir)
-        self.stacked_widget.addWidget(self.pagina_perfil)  # Índice 1
-        self.stacked_widget.addWidget(self.pagina_usuarios)  # Índice 2
-        self.stacked_widget.addWidget(self.pagina_trabajadores)  # Índice 3
-        self.stacked_widget.addWidget(self.pagina_votacion)  # Índice 4
-        self.stacked_widget.addWidget(self.pagina_asistencias)  # Índice 5
-        self.stacked_widget.addWidget(self.pagina_operativas)  # Índice 6
-        self.stacked_widget.addWidget(self.pagina_reportes)  # Índice 7
+        self.stacked_widget.addWidget(self.pagina_inicio)
+        self.stacked_widget.addWidget(self.pagina_perfil)
+        self.stacked_widget.addWidget(self.pagina_usuarios)
+        self.stacked_widget.addWidget(self.pagina_trabajadores)
+        self.stacked_widget.addWidget(self.pagina_votacion)
+        self.stacked_widget.addWidget(self.pagina_asistencias)
+        self.stacked_widget.addWidget(self.pagina_operativas)
+        self.stacked_widget.addWidget(self.pagina_reportes)
 
-        main_layout.addWidget(sidebar)
+        main_layout.addWidget(self.sidebar)
         main_layout.addWidget(self.stacked_widget)
 
     # ==================== MÉTODOS ====================
+    def toggle_sidebar(self):
+        """Método para contraer o expandir el menú lateral de forma responsiva"""
+        if self.menu_expandido:
+            # Contraer menú
+            self.sidebar.setFixedWidth(75)
+            self.label_logo_sidebar.hide() # Ocultamos el logo de texto al contraer
+            
+            # Cambiamos los textos por iconos compactos
+            self.btn_inicio.setText("  🏠")
+            self.btn_perfil.setText("  👤")
+            self.btn_usuarios.setText("  👥")
+            self.btn_trabajadores.setText("  🪪")
+            self.btn_votacion.setText("  🗳️")
+            self.btn_asistencias.setText("  📅")
+            self.btn_operativas.setText("  📊")
+            self.btn_reportes.setText("  📈")
+            self.btn_cerrar.setText("  🚪")
+            self.menu_expandido = False
+        else:
+            # Expandir menú
+            self.sidebar.setFixedWidth(260)
+            self.label_logo_sidebar.show() # Mostramos de nuevo el logo
+            
+            # Restauramos los textos originales
+            self.btn_inicio.setText("  Inicio")
+            self.btn_perfil.setText("  Perfil")
+            self.btn_usuarios.setText("  Usuarios")
+            self.btn_trabajadores.setText("  Trabajadores")
+            self.btn_votacion.setText("  Centros de Votación")
+            self.btn_asistencias.setText("  Asistencias")
+            self.btn_operativas.setText("  Novedades Operativas")
+            self.btn_reportes.setText("  Reportes")
+            self.btn_cerrar.setText("Cerrar sesión")
+            self.menu_expandido = True
+
     def cerrar_sesion(self):
-        # Activamos la bandera indicando que el cierre se originó por el botón "Salir"
         self.cerrando_sesion = True
         self.close()
 
     def cambiar_pagina(self, indice, boton_activo):
-        # 1. Cambiamos la vista en el stacked widget
         self.stacked_widget.setCurrentIndex(indice)
-        
-        # 2. Lista con todos los botones del menú lateral para controlarlos
         botones = [
             self.btn_inicio, 
             self.btn_perfil, 
@@ -187,7 +259,6 @@ class VentanaPrincipal(QMainWindow):
             self.btn_operativas, 
             self.btn_reportes
         ]
-        # 3. Recorremos los botones: marcamos solo el activo y desmarcamos el resto
         for btn in botones:
             if btn == boton_activo:
                 btn.setChecked(True)
@@ -195,22 +266,17 @@ class VentanaPrincipal(QMainWindow):
                 btn.setChecked(False)
 
     def closeEvent(self, event):
-        # Controlamos si se cerró por sesión o si le dieron a la "X" normal
         if self.cerrando_sesion:
             if self.ventana_login:
-                self.ventana_login.limpiar_formulario() # <--- ¡Limpiamos los datos por seguridad!
-                self.ventana_login.show()               # Volvemos a mostrar el login oculto
+                self.ventana_login.limpiar_formulario()
+                self.ventana_login.show()
             event.accept()
         else:
-            # Si le dieron a la "X", cerramos toda la aplicación por completo
             event.accept()
             QApplication.quit()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ventana = VentanaPrincipal()
-    
-    # Abre la ventana maximizada (pantalla completa)
     ventana.showMaximized() 
-    
     sys.exit(app.exec_())
