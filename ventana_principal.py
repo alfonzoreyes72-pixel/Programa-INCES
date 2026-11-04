@@ -2,7 +2,7 @@ import sys
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
                             QGraphicsDropShadowEffect, QStackedWidget)
-from PyQt5.QtGui import QColor, QPixmap
+from PyQt5.QtGui import QColor, QPixmap, QIcon
 from PyQt5.QtCore import Qt
 
 from inicio.ventana_inicio import VentanaInicio
@@ -35,16 +35,15 @@ class VentanaPrincipal(QMainWindow):
         # ==================== MENÚ LATERAL IZQUIERDO ====================
         self.sidebar = QWidget()
         self.sidebar.setStyleSheet("background-color: #163e7a;")
-        self.sidebar.setFixedWidth(260)  # Ancho fijo inicial para el menú lateral
+        self.sidebar.setFixedWidth(260)  # Ancho fijo para el menú lateral
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(15, 20, 15, 20)
         sidebar_layout.setSpacing(12)
         
-        # --- ENCABEZADO DEL SIDEBAR (Botón menú + Logo autocalculable) ---
+        # --- ENCABEZADO DEL SIDEBAR (Botón hamburguesa + Logo institucional) ---
         header_menu_layout = QHBoxLayout()
         header_menu_layout.setSpacing(10)
         
-        # Botón Hamburguesa para abrir/cerrar el menú
         self.btn_toggle = QPushButton("☰")
         self.btn_toggle.setFixedSize(40, 40)
         self.btn_toggle.setCursor(Qt.PointingHandCursor)
@@ -64,7 +63,6 @@ class VentanaPrincipal(QMainWindow):
         self.btn_toggle.clicked.connect(self.toggle_sidebar)
         header_menu_layout.addWidget(self.btn_toggle)
         
-        # Logo institucional con ruta autocalculable
         self.label_logo_sidebar = QLabel()
         directorio = os.path.dirname(__file__)
         ruta_logo = os.path.join(directorio, 'imagenes', 'INCES Sede Monagas.svg')
@@ -78,7 +76,7 @@ class VentanaPrincipal(QMainWindow):
         sidebar_layout.addLayout(header_menu_layout)
         sidebar_layout.addSpacing(10)
         
-        # Estilo común para los botones del menú lateral
+        # Estilo común para los botones del menú lateral (con soporte de tamaño de icono)
         estilo_boton = """
             QPushButton {
                 background-color: transparent;
@@ -88,6 +86,7 @@ class VentanaPrincipal(QMainWindow):
                 border: none;
                 font-size: 14px;
                 font-weight: bold;
+                icon-size: 22px;
             }
             QPushButton:hover {
                 background-color: #3b6ba3;
@@ -99,52 +98,60 @@ class VentanaPrincipal(QMainWindow):
             }
         """
 
-        # Creación individual de los 8 botones del menú lateral
+        # Creación individual de los botones del menú lateral con sus respectivas rutas autocalculables
         self.btn_inicio = QPushButton("  Inicio")
         self.btn_inicio.setStyleSheet(estilo_boton)
-        self.btn_inicio.setCheckable(True)       # Permitir que se quede marcado
-        self.btn_inicio.setChecked(True)         # Arranca marcado por defecto en el inicio
+        self.btn_inicio.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-inicio.svg')))
+        self.btn_inicio.setCheckable(True)
+        self.btn_inicio.setChecked(True)
         sidebar_layout.addWidget(self.btn_inicio)
         self.btn_inicio.clicked.connect(lambda: self.cambiar_pagina(0, self.btn_inicio))
         
         self.btn_perfil = QPushButton("  Perfil")
         self.btn_perfil.setStyleSheet(estilo_boton)
+        self.btn_perfil.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-perfil.svg')))
         self.btn_perfil.setCheckable(True)
         sidebar_layout.addWidget(self.btn_perfil)
         self.btn_perfil.clicked.connect(lambda: self.cambiar_pagina(1, self.btn_perfil))
         
         self.btn_usuarios = QPushButton("  Usuarios")
         self.btn_usuarios.setStyleSheet(estilo_boton)
+        self.btn_usuarios.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-usuarios.svg')))
         self.btn_usuarios.setCheckable(True)
         sidebar_layout.addWidget(self.btn_usuarios)
         self.btn_usuarios.clicked.connect(lambda: self.cambiar_pagina(2, self.btn_usuarios))
         
         self.btn_trabajadores = QPushButton("  Trabajadores")
         self.btn_trabajadores.setStyleSheet(estilo_boton)
+        self.btn_trabajadores.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-trabajadores.svg')))
         self.btn_trabajadores.setCheckable(True)
         sidebar_layout.addWidget(self.btn_trabajadores)
         self.btn_trabajadores.clicked.connect(lambda: self.cambiar_pagina(3, self.btn_trabajadores))
 
         self.btn_votacion = QPushButton("  Centros de Votación")
         self.btn_votacion.setStyleSheet(estilo_boton)
+        self.btn_votacion.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-votacion.svg')))
         self.btn_votacion.setCheckable(True)
         sidebar_layout.addWidget(self.btn_votacion)
         self.btn_votacion.clicked.connect(lambda: self.cambiar_pagina(4, self.btn_votacion))
         
         self.btn_asistencias = QPushButton("  Asistencias")
         self.btn_asistencias.setStyleSheet(estilo_boton)
+        self.btn_asistencias.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-asistencias.svg')))
         self.btn_asistencias.setCheckable(True)
         sidebar_layout.addWidget(self.btn_asistencias)
         self.btn_asistencias.clicked.connect(lambda: self.cambiar_pagina(5, self.btn_asistencias))
         
         self.btn_operativas = QPushButton("  Novedades Operativas")
         self.btn_operativas.setStyleSheet(estilo_boton)
+        self.btn_operativas.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-operativas.svg')))
         self.btn_operativas.setCheckable(True)
         sidebar_layout.addWidget(self.btn_operativas)
         self.btn_operativas.clicked.connect(lambda: self.cambiar_pagina(6, self.btn_operativas))
         
         self.btn_reportes = QPushButton("  Reportes")
         self.btn_reportes.setStyleSheet(estilo_boton)
+        self.btn_reportes.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-reportes.svg')))
         self.btn_reportes.setCheckable(True)
         sidebar_layout.addWidget(self.btn_reportes)
         self.btn_reportes.clicked.connect(lambda: self.cambiar_pagina(7, self.btn_reportes))
@@ -153,7 +160,8 @@ class VentanaPrincipal(QMainWindow):
         sidebar_layout.addStretch()
         
         # Botón de Cerrar sesión
-        self.btn_cerrar = QPushButton("Cerrar sesión")
+        self.btn_cerrar = QPushButton("  Cerrar sesión")
+        self.btn_cerrar.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-cerrar-sesion.svg')))
         self.btn_cerrar.setStyleSheet("""
             QPushButton {
                 background-color: white;
@@ -162,13 +170,13 @@ class VentanaPrincipal(QMainWindow):
                 padding: 10px;
                 font-size: 14px;
                 font-weight: bold;
+                icon-size: 22px; /* Asegura el tamaño del icono */
             }
             QPushButton:hover {
                 background-color: #d9d9d9;
             }
         """)
         
-        # Aplicamos la sombra al botón de cerrar
         efecto_sombra = QGraphicsDropShadowEffect(self)
         efecto_sombra.setBlurRadius(20)
         efecto_sombra.setXOffset(5)
@@ -180,11 +188,9 @@ class VentanaPrincipal(QMainWindow):
         sidebar_layout.addWidget(self.btn_cerrar)
         
         # ==================== ÁREA PRINCIPAL (DERECHA) ====================
-        # Creamos el gestor de páginas (Stacked Widget) con tu fondo gris original
         self.stacked_widget = QStackedWidget()
         self.stacked_widget.setStyleSheet("background-color: #bfbdbe;")
 
-        # Instanciamos cada vista modular
         self.pagina_inicio = VentanaInicio()
         self.pagina_perfil = VentanaPerfil()
         self.pagina_usuarios = VentanaUsuarios()
@@ -194,7 +200,6 @@ class VentanaPrincipal(QMainWindow):
         self.pagina_operativas = VentanaOperativas()
         self.pagina_reportes = VentanaReportes()
 
-        # Las añadimos al carrusel
         self.stacked_widget.addWidget(self.pagina_inicio)
         self.stacked_widget.addWidget(self.pagina_perfil)
         self.stacked_widget.addWidget(self.pagina_usuarios)
@@ -213,25 +218,23 @@ class VentanaPrincipal(QMainWindow):
         if self.menu_expandido:
             # Contraer menú
             self.sidebar.setFixedWidth(75)
-            self.label_logo_sidebar.hide() # Ocultamos el logo de texto al contraer
+            self.label_logo_sidebar.hide()
             
-            # Cambiamos los textos por iconos compactos
-            self.btn_inicio.setText("  🏠")
-            self.btn_perfil.setText("  👤")
-            self.btn_usuarios.setText("  👥")
-            self.btn_trabajadores.setText("  🪪")
-            self.btn_votacion.setText("  🗳️")
-            self.btn_asistencias.setText("  📅")
-            self.btn_operativas.setText("  📊")
-            self.btn_reportes.setText("  📈")
-            self.btn_cerrar.setText("  🚪")
+            self.btn_inicio.setText("")
+            self.btn_perfil.setText("")
+            self.btn_usuarios.setText("")
+            self.btn_trabajadores.setText("")
+            self.btn_votacion.setText("")
+            self.btn_asistencias.setText("")
+            self.btn_operativas.setText("")
+            self.btn_reportes.setText("")
+            self.btn_cerrar.setText("")  # Oculta el texto, manteniendo el icono visible
             self.menu_expandido = False
         else:
             # Expandir menú
             self.sidebar.setFixedWidth(260)
-            self.label_logo_sidebar.show() # Mostramos de nuevo el logo
+            self.label_logo_sidebar.show()
             
-            # Restauramos los textos originales
             self.btn_inicio.setText("  Inicio")
             self.btn_perfil.setText("  Perfil")
             self.btn_usuarios.setText("  Usuarios")
@@ -240,9 +243,9 @@ class VentanaPrincipal(QMainWindow):
             self.btn_asistencias.setText("  Asistencias")
             self.btn_operativas.setText("  Novedades Operativas")
             self.btn_reportes.setText("  Reportes")
-            self.btn_cerrar.setText("Cerrar sesión")
+            self.btn_cerrar.setText("  Cerrar sesión")  # Restaura el texto completo
             self.menu_expandido = True
-
+            
     def cerrar_sesion(self):
         self.cerrando_sesion = True
         self.close()
