@@ -1,9 +1,9 @@
 import sys
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
     QLineEdit, QPushButton, QTableWidget, QHeaderView, QScrollArea
 )
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 
 
 class VentanaTrabajadores(QWidget):
@@ -108,7 +108,7 @@ class VentanaTrabajadores(QWidget):
         # Botón Buscar
         self.btn_buscar = QPushButton("Buscar")
         self.btn_buscar.setFixedSize(110, 38)
-        self.btn_buscar.setCursor(Qt.PointingHandCursor)
+        self.btn_buscar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_buscar.setStyleSheet("""
             QPushButton {
                 background-color: #0833a2;
@@ -126,7 +126,7 @@ class VentanaTrabajadores(QWidget):
         # Botón Agregar Trabajador
         self.btn_agregar = QPushButton("+ Agregar")
         self.btn_agregar.setFixedSize(120, 38)
-        self.btn_agregar.setCursor(Qt.PointingHandCursor)
+        self.btn_agregar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_agregar.setStyleSheet("""
             QPushButton {
                 background-color: #28a745;
@@ -152,14 +152,14 @@ class VentanaTrabajadores(QWidget):
         self.tabla_trabajadores.setColumnCount(len(columnas))
         self.tabla_trabajadores.setHorizontalHeaderLabels(columnas)
         
-        self.tabla_trabajadores.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tabla_trabajadores.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tabla_trabajadores.verticalHeader().setVisible(False)
-        self.tabla_trabajadores.setSelectionBehavior(QTableWidget.SelectRows)
-        self.tabla_trabajadores.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tabla_trabajadores.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.tabla_trabajadores.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
         # Desactivamos el scroll interno de la tabla para que el scroll exterior maneje todo el panel
-        self.tabla_trabajadores.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.tabla_trabajadores.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.tabla_trabajadores.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tabla_trabajadores.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self.tabla_trabajadores.setStyleSheet("""
             QTableWidget {
@@ -207,4 +207,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = VentanaTrabajadores()
     ventana.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

@@ -1,10 +1,10 @@
 import sys
 import os
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QHBoxLayout, QVBoxLayout, QWidget, QPushButton, QGraphicsDropShadowEffect,
-                            QDialog, QGraphicsDropShadowEffect, QFrame, QSpacerItem, QSizePolicy, QLineEdit)
-from PyQt5.QtSvg import QSvgWidget
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor, QPixmap
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QHBoxLayout, QVBoxLayout, QWidget, QPushButton, 
+                            QGraphicsDropShadowEffect, QDialog, QFrame, QSpacerItem, QSizePolicy, QLineEdit)
+from PyQt6.QtSvgWidgets import QSvgWidget
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QPixmap
 
 from modales.ventana_error import VentanaError
 
@@ -13,7 +13,7 @@ class VentanaLogin(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Sistema INCES")
-        self.resize(900,600)
+        self.resize(900, 600)
 
         # --- Contenedor Principal ---
         self.widget_central = QWidget()
@@ -38,15 +38,15 @@ class VentanaLogin(QMainWindow):
         # Sub-contenedor para el Logo
         self.logo_container = QWidget()
         self.logo_layout = QVBoxLayout(self.logo_container)
-        self.logo_layout.setAlignment(Qt.AlignCenter)
+        self.logo_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.logo_layout.setContentsMargins(100, 50, 50, 0)
 
         # IMPORTACION DEL LOGO
         self.label_imagen = QLabel(self.logo_container)
         directorio = os.path.dirname(__file__)
         pixmap = QPixmap(os.path.join(directorio, 'imagenes', 'logo inces.png'))
-        self.label_imagen.setPixmap(pixmap.scaled(400, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        self.label_imagen.setAlignment(Qt.AlignCenter)
+        self.label_imagen.setPixmap(pixmap.scaled(400, 300, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        self.label_imagen.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.logo_layout.addWidget(self.label_imagen)
 
         self.left_master_layout.addWidget(self.logo_container, stretch=1)
@@ -54,7 +54,7 @@ class VentanaLogin(QMainWindow):
         # ELEMENTOS GRAFICOS DE LA ESQUINA
         self.adorno_esquina = QSvgWidget(os.path.join(directorio, 'imagenes', 'adorno.svg'))
         self.adorno_esquina.setFixedSize(300, 215)
-        self.left_master_layout.addWidget(self.adorno_esquina, alignment=Qt.AlignLeft | Qt.AlignBottom)
+        self.left_master_layout.addWidget(self.adorno_esquina, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
 
         # Añadimos el bloque izquierdo al diseño principal
         self.layout_principal.addWidget(self.left_container, stretch=1)
@@ -64,7 +64,7 @@ class VentanaLogin(QMainWindow):
         # =================================================================
         self.right_container = QWidget()
         self.right_layout = QVBoxLayout(self.right_container)
-        self.right_layout.setAlignment(Qt.AlignCenter)
+        self.right_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.right_layout.setContentsMargins(50, 50, 100, 50)
 
         # 1. Creamos el Frame que actuará como tarjeta blanca
@@ -135,7 +135,7 @@ class VentanaLogin(QMainWindow):
                 margin-bottom: 10px;
             }
         """)
-        self.label_login.setAlignment(Qt.AlignCenter)
+        self.label_login.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.panel_layout.addWidget(self.label_login)
 
         self.panel_layout.addSpacing(15)
@@ -152,7 +152,7 @@ class VentanaLogin(QMainWindow):
         # Entrada de contraseña
         self.txt_contraseña = QLineEdit()
         self.txt_contraseña.setPlaceholderText("Contraseña")
-        self.txt_contraseña.setEchoMode(QLineEdit.Password)
+        self.txt_contraseña.setEchoMode(QLineEdit.EchoMode.Password)
         self.txt_contraseña.setStyleSheet(estilo_inputs)
         self.txt_contraseña.setFixedHeight(40)
         self.panel_layout.addWidget(self.txt_contraseña)
@@ -163,7 +163,7 @@ class VentanaLogin(QMainWindow):
         self.btn_ingresar = QPushButton("Ingresar")
         self.btn_ingresar.setFixedSize(200, 40)
         self.btn_ingresar.clicked.connect(self.validar_usuario)
-        self.panel_layout.addWidget(self.btn_ingresar, alignment=Qt.AlignCenter)
+        self.panel_layout.addWidget(self.btn_ingresar, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.panel_layout.addSpacing(15)
 
@@ -171,14 +171,14 @@ class VentanaLogin(QMainWindow):
         self.btn_registrar = QPushButton("Registrar")
         self.btn_registrar.setFixedSize(200, 40)
         self.btn_registrar.clicked.connect(self.abrir_registro)
-        self.panel_layout.addWidget(self.btn_registrar, alignment=Qt.AlignCenter)
+        self.panel_layout.addWidget(self.btn_registrar, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.panel_layout.addStretch(1)
 
         # Bucle para estilos de botones
         for btn in [self.btn_ingresar, self.btn_registrar]:
             btn.setStyleSheet(estilo_botones)
-            btn.setCursor(Qt.PointingHandCursor)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
         # Bucle para efectos de sombra
         for widget in [self.txt_usuario, self.txt_contraseña, self.btn_ingresar, self.btn_registrar]:
@@ -189,10 +189,9 @@ class VentanaLogin(QMainWindow):
             efecto_sombra.setColor(QColor(0, 0, 0, 70))
             widget.setGraphicsEffect(efecto_sombra)
 
-        # Añadimos la tarjeta al layout derecho y el contenedor derecho al layout principal UNA SOLA VEZ
+        # Añadimos la tarjeta al layout derecho y el contenedor derecho al layout principal
         self.right_layout.addWidget(self.login_panel)
         self.layout_principal.addWidget(self.right_container, stretch=1)
-
 
     def validar_usuario(self):
         if self.txt_usuario.text() == "a" and self.txt_contraseña.text() == "a":
@@ -203,18 +202,18 @@ class VentanaLogin(QMainWindow):
             self.hide() 
         else:
             ventana_error = VentanaError(self)
-            ventana_error.exec_()
+            ventana_error.exec()  # Actualizado a PyQt6 (.exec sin guion bajo)
 
     def abrir_registro(self):
         from modales.ventana_registro import VentanaRegistro
         
         self.ventana_registro = VentanaRegistro(ventana_login=self)
         self.ventana_registro.showMaximized()
-        self.hide()  # <--- Ocultamos el login al abrir el registro
+        self.hide()  
 
     def centrar_ventana(self):
         qr = self.frameGeometry()
-        cp = QDesktopWidget().availableGeometry().center()
+        cp = self.screen().availableGeometry().center()  # Actualizado para PyQt6 (reemplaza a QDesktopWidget)
         qr.moveCenter(cp)
         self.move(qr.topLeft())
 
@@ -228,4 +227,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = VentanaLogin()
     window.showMaximized()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())  # Actualizado a PyQt6 (.exec sin guion bajo)

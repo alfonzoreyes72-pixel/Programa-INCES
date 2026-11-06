@@ -1,6 +1,6 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtCore import Qt
 
 class VentanaInicio(QWidget):
     def __init__(self, parent=None):
@@ -11,11 +11,11 @@ class VentanaInicio(QWidget):
         
         label = QLabel("¡Bienvenido al Sistema INCES - Área de Inicio!")
         label.setStyleSheet("font-size: 24px; font-weight: bold; color: #333333;")
-        label.setAlignment(Qt.AlignCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = VentanaInicio()
     ventana.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

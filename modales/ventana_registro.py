@@ -1,9 +1,9 @@
 import sys
 import os
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QHBoxLayout, QVBoxLayout, QWidget,
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QHBoxLayout, QVBoxLayout, QWidget,
                             QPushButton, QGraphicsDropShadowEffect, QFrame, QLineEdit, QComboBox)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 
 class VentanaRegistro(QMainWindow):
     def __init__(self, ventana_login=None):
@@ -22,7 +22,7 @@ class VentanaRegistro(QMainWindow):
         # Layout principal que dejará un pequeño margen en las esquinas de toda la pantalla
         self.layout_principal = QVBoxLayout(self.widget_central)
         self.layout_principal.setContentsMargins(40, 40, 40, 40)  # Margen en las esquinas
-        self.layout_principal.setAlignment(Qt.AlignCenter)
+        self.layout_principal.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # 1. Tarjeta blanca grande que cubre toda la pantalla dejando el margen
         self.registro_panel = QFrame()
@@ -45,7 +45,7 @@ class VentanaRegistro(QMainWindow):
 
         # 3. Layout interno del panel blanco
         self.panel_layout = QVBoxLayout(self.registro_panel)
-        self.panel_layout.setAlignment(Qt.AlignCenter)
+        self.panel_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.panel_layout.setContentsMargins(50, 50, 50, 50)
 
         # Estilos compartidos de inputs y botones
@@ -90,7 +90,7 @@ class VentanaRegistro(QMainWindow):
                 margin-bottom: 20px;
             }
         """)
-        self.label_titulo.setAlignment(Qt.AlignCenter)
+        self.label_titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.panel_layout.addWidget(self.label_titulo)
 
         self.panel_layout.addSpacing(15)
@@ -100,16 +100,16 @@ class VentanaRegistro(QMainWindow):
         self.txt_nuevo_usuario.setPlaceholderText("Nuevo Usuario")
         self.txt_nuevo_usuario.setStyleSheet(estilo_inputs)
         self.txt_nuevo_usuario.setFixedSize(350, 40)
-        self.panel_layout.addWidget(self.txt_nuevo_usuario, alignment=Qt.AlignCenter)
+        self.panel_layout.addWidget(self.txt_nuevo_usuario, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.panel_layout.addSpacing(20)
 
         self.txt_nueva_contrasena = QLineEdit()
         self.txt_nueva_contrasena.setPlaceholderText("Contraseña")
-        self.txt_nueva_contrasena.setEchoMode(QLineEdit.Password)
+        self.txt_nueva_contrasena.setEchoMode(QLineEdit.EchoMode.Password)
         self.txt_nueva_contrasena.setStyleSheet(estilo_inputs)
         self.txt_nueva_contrasena.setFixedSize(350, 40)
-        self.panel_layout.addWidget(self.txt_nueva_contrasena, alignment=Qt.AlignCenter)
+        self.panel_layout.addWidget(self.txt_nueva_contrasena, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.panel_layout.addSpacing(20)
 
@@ -119,7 +119,7 @@ class VentanaRegistro(QMainWindow):
         self.combo_rol.setFixedSize(350, 40)
         self.actualizar_estilo_combo()
         self.combo_rol.currentIndexChanged.connect(self.actualizar_estilo_combo)
-        self.panel_layout.addWidget(self.combo_rol, alignment=Qt.AlignCenter)
+        self.panel_layout.addWidget(self.combo_rol, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.panel_layout.addSpacing(30)
 
@@ -127,9 +127,9 @@ class VentanaRegistro(QMainWindow):
         self.btn_guardar = QPushButton("Registrar")
         self.btn_guardar.setFixedSize(200, 40)
         self.btn_guardar.setStyleSheet(estilo_botones)
-        self.btn_guardar.setCursor(Qt.PointingHandCursor)
+        self.btn_guardar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_guardar.clicked.connect(self.procesar_registro)
-        self.panel_layout.addWidget(self.btn_guardar, alignment=Qt.AlignCenter)
+        self.panel_layout.addWidget(self.btn_guardar, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.panel_layout.addSpacing(15)
 
@@ -137,9 +137,9 @@ class VentanaRegistro(QMainWindow):
         self.btn_volver = QPushButton("Volver")
         self.btn_volver.setFixedSize(200, 40)
         self.btn_volver.setStyleSheet(estilo_botones)
-        self.btn_volver.setCursor(Qt.PointingHandCursor)
+        self.btn_volver.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_volver.clicked.connect(self.regresar_login)
-        self.panel_layout.addWidget(self.btn_volver, alignment=Qt.AlignCenter)
+        self.panel_layout.addWidget(self.btn_volver, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Efectos de sombra para los elementos internos
         for widget in [self.txt_nuevo_usuario, self.txt_nueva_contrasena, self.combo_rol, self.btn_guardar, self.btn_volver]:
@@ -213,4 +213,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = VentanaRegistro()
     ventana.showMaximized()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())  # Actualizado a PyQt6 (.exec sin guion bajo)

@@ -1,9 +1,9 @@
 import sys
 import os
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
                             QGraphicsDropShadowEffect, QStackedWidget)
-from PyQt5.QtGui import QColor, QPixmap, QIcon
-from PyQt5.QtCore import Qt
+from PyQt6.QtGui import QColor, QPixmap, QIcon
+from PyQt6.QtCore import Qt
 
 from inicio.ventana_inicio import VentanaInicio
 from perfil.ventana_perfil import VentanaPerfil
@@ -46,7 +46,7 @@ class VentanaPrincipal(QMainWindow):
         
         self.btn_toggle = QPushButton("☰")
         self.btn_toggle.setFixedSize(40, 40)
-        self.btn_toggle.setCursor(Qt.PointingHandCursor)
+        self.btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_toggle.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -70,13 +70,13 @@ class VentanaPrincipal(QMainWindow):
             ruta_logo = os.path.join(directorio, 'imagenes', 'logo inces.png')
             
         pixmap = QPixmap(ruta_logo)
-        self.label_logo_sidebar.setPixmap(pixmap.scaled(140, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.label_logo_sidebar.setPixmap(pixmap.scaled(140, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         header_menu_layout.addWidget(self.label_logo_sidebar)
         
         sidebar_layout.addLayout(header_menu_layout)
         sidebar_layout.addSpacing(10)
         
-        # Estilo común para los botones del menú lateral (con soporte de tamaño de icono)
+        # Estilo común para los botones del menú lateral
         estilo_boton = """
             QPushButton {
                 background-color: transparent;
@@ -98,7 +98,7 @@ class VentanaPrincipal(QMainWindow):
             }
         """
 
-        # Creación individual de los botones del menú lateral con sus respectivas rutas autocalculables
+        # Creación individual de los botones del menú lateral con PyQt6
         self.btn_inicio = QPushButton("  Inicio")
         self.btn_inicio.setStyleSheet(estilo_boton)
         self.btn_inicio.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-inicio.svg')))
@@ -159,7 +159,7 @@ class VentanaPrincipal(QMainWindow):
         # Espaciador flexible para empujar el botón de salida hacia el fondo
         sidebar_layout.addStretch()
         
-        # Botón de Cerrar sesión
+        # Botón de Cerrar sesión con icono
         self.btn_cerrar = QPushButton("  Cerrar sesión")
         self.btn_cerrar.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-cerrar-sesion.svg')))
         self.btn_cerrar.setStyleSheet("""
@@ -170,7 +170,7 @@ class VentanaPrincipal(QMainWindow):
                 padding: 10px;
                 font-size: 14px;
                 font-weight: bold;
-                icon-size: 22px; /* Asegura el tamaño del icono */
+                icon-size: 22px;
             }
             QPushButton:hover {
                 background-color: #d9d9d9;
@@ -216,7 +216,6 @@ class VentanaPrincipal(QMainWindow):
     def toggle_sidebar(self):
         """Método para contraer o expandir el menú lateral de forma responsiva"""
         if self.menu_expandido:
-            # Contraer menú
             self.sidebar.setFixedWidth(75)
             self.label_logo_sidebar.hide()
             
@@ -228,10 +227,9 @@ class VentanaPrincipal(QMainWindow):
             self.btn_asistencias.setText("")
             self.btn_operativas.setText("")
             self.btn_reportes.setText("")
-            self.btn_cerrar.setText("")  # Oculta el texto, manteniendo el icono visible
+            self.btn_cerrar.setText("")
             self.menu_expandido = False
         else:
-            # Expandir menú
             self.sidebar.setFixedWidth(260)
             self.label_logo_sidebar.show()
             
@@ -243,9 +241,9 @@ class VentanaPrincipal(QMainWindow):
             self.btn_asistencias.setText("  Asistencias")
             self.btn_operativas.setText("  Novedades Operativas")
             self.btn_reportes.setText("  Reportes")
-            self.btn_cerrar.setText("  Cerrar sesión")  # Restaura el texto completo
+            self.btn_cerrar.setText("  Cerrar sesión")
             self.menu_expandido = True
-            
+
     def cerrar_sesion(self):
         self.cerrando_sesion = True
         self.close()
@@ -282,4 +280,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     ventana = VentanaPrincipal()
     ventana.showMaximized() 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

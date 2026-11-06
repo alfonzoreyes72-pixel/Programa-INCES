@@ -1,6 +1,6 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtCore import Qt
 
 # Cambiamos QMainWindow por QWidget para que actúe como un panel incrustable
 class VentanaPerfil(QWidget):
@@ -14,11 +14,11 @@ class VentanaPerfil(QWidget):
         # Etiqueta de bienvenida que ya tenías
         label = QLabel("Bienvenido a la Ventana de Perfil")
         label.setStyleSheet("font-size: 20px; font-weight: bold; color: #333333;")
-        label.setAlignment(Qt.AlignCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = VentanaPerfil()
     ventana.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

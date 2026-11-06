@@ -1,8 +1,8 @@
 import sys
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QApplication, QPushButton, QVBoxLayout, QDialog, QLabel, QGraphicsDropShadowEffect)
-from PyQt5.QtGui import QColor
-from PyQt5.QtCore import Qt
+from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt
 
 class VentanaError(QDialog):  # Clase para la ventana modal
     def __init__(self, parent=None):
@@ -14,12 +14,12 @@ class VentanaError(QDialog):  # Clase para la ventana modal
         self.setModal(True)  # Hacer que la ventana sea modal
         self.setStyleSheet("background-color: white;")
 
-        # QUITAMOS EL SÍMBOLO DE INTERROGACIÓN DE LA BARRA DE TÍTULO
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        # QUITAMOS EL SÍMBOLO DE INTERROGACIÓN DE LA BARRA DE TÍTULO (Actualizado para PyQt6)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
 
         # Crear un layout para organizar los widgets
         self.layout = QVBoxLayout(self)
-        self.layout.setAlignment(Qt.AlignCenter)
+        self.layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Etiqueta de texto
         self.etiqueta = QLabel("Usuario o contraseña incorrectos")
@@ -33,7 +33,7 @@ class VentanaError(QDialog):  # Clase para la ventana modal
                         margin-bottom: 15px;
                     }
                 """)
-        self.etiqueta.setAlignment(Qt.AlignCenter)
+        self.etiqueta.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(self.etiqueta)
 
         # Botón para aceptar
@@ -64,7 +64,7 @@ class VentanaError(QDialog):  # Clase para la ventana modal
         
         # Conectamos el botón al método de cierre
         self.btn_aceptar.clicked.connect(self.cerrar) 
-        self.layout.addWidget(self.btn_aceptar, alignment=Qt.AlignCenter) # Centrado debajo del texto
+        self.layout.addWidget(self.btn_aceptar, alignment=Qt.AlignmentFlag.AlignCenter) # Centrado debajo del texto
 
     def cerrar(self):
         """Método para cerrar la ventana modal de error"""
@@ -75,4 +75,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = VentanaError()
     ventana.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())  # Actualizado a PyQt6 (.exec sin guion bajo)
