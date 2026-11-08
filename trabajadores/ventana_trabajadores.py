@@ -1,9 +1,16 @@
 import sys
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
-    QLineEdit, QPushButton, QLabel, QScrollArea, QSizePolicy
+    QLineEdit, QPushButton, QLabel, QScrollArea, QSizePolicy, QDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal
+
+# Importación de la ventana modal de registro (compatible si están en la misma carpeta)
+try:
+    from .registro_trabajadores import RegistroTrabajadores
+except ImportError:
+    from registro_trabajadores import RegistroTrabajadores
+
 
 class FilaTrabajador(QFrame):
     """Componente interactivo para cada fila de trabajador en la lista"""
@@ -47,6 +54,8 @@ class FilaTrabajador(QFrame):
 class VentanaTrabajadores(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        self.trabajador_seleccionado = None
 
         # Layout principal horizontal
         layout_principal = QHBoxLayout(self)
@@ -93,7 +102,7 @@ class VentanaTrabajadores(QWidget):
         layout_panel.setContentsMargins(20, 20, 20, 20)
         layout_panel.setSpacing(15)
 
-        # Título "Listado de trabajadores" (Actualizado al tono oscuro sutil #2c2c2c)
+        # Título "Listado de trabajadores"
         self.lbl_titulo_lista = QLabel("Listado de trabajadores")
         self.lbl_titulo_lista.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c2c2c; border: none; background: transparent;")
         layout_panel.addWidget(self.lbl_titulo_lista)
@@ -116,6 +125,7 @@ class VentanaTrabajadores(QWidget):
             }
             QPushButton:hover { background-color: #235299; }
         """)
+        self.btn_agregar.clicked.connect(self.abrir_dialogo_agregar)
         controles_layout.addWidget(self.btn_agregar)
 
         self.btn_modificar = QPushButton("Modificar")
@@ -132,6 +142,7 @@ class VentanaTrabajadores(QWidget):
             }
             QPushButton:hover { background-color: #235299; }
         """)
+        self.btn_modificar.clicked.connect(self.abrir_dialogo_modificar)
         controles_layout.addWidget(self.btn_modificar)
 
         controles_layout.addStretch()
@@ -337,6 +348,7 @@ class VentanaTrabajadores(QWidget):
             self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
 
     def mostrar_detalles_trabajador(self, datos):
+        self.trabajador_seleccionado = datos  # Guardamos la referencia para el botón modificar
         nombre = datos['nombre']
         inicial = nombre[0].upper() if nombre else "?"
         
@@ -356,7 +368,24 @@ class VentanaTrabajadores(QWidget):
         self.panel_detalles.show()
 
     def ocultar_detalles(self):
+        self.trabajador_seleccionado = None
         self.panel_detalles.hide()
+
+    def abrir_dialogo_agregar(self):
+        """Abre la ventana modal de registro de trabajadores"""
+        dialogo = RegistroTrabajadores("Registrar Nuevo Trabajador", parent=self)
+        if dialogo.exec() == QDialog.DialogCode.Accepted:
+            # Aquí posteriormente conectaremos la inserción a la base de datos MySQL
+            pass
+
+    def abrir_dialogo_modificar(self):
+        """Abre la ventana modal para modificar al trabajador seleccionado"""
+        if not self.trabajador_seleccionado:
+            return
+        dialogo = RegistroTrabajadores("Modificar Trabajador", datos=self.trabajador_seleccionado, parent=self)
+        if dialogo.exec() == QDialog.DialogCode.Accepted:
+            # Aquí posteriormente conectaremos la actualización en la base de datos MySQL
+            pass
 
 
 if __name__ == "__main__":
