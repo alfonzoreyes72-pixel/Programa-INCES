@@ -5,14 +5,21 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QVBoxLayout, QHBoxLayout,
     QLineEdit, QPushButton, QLabel, QScrollArea, QFormLayout,
-    QComboBox, QDateEdit, QWidget, QFrame, QListView
+    QComboBox, QDateEdit, QWidget, QFrame, QListView, QMessageBox
 )
 from PyQt6.QtCore import Qt, QDate, QPointF
 from PyQt6.QtGui import QPalette, QColor, QPixmap, QPainter, QPen, QPolygonF
 
+# Importación del gestor de base de datos global desde la raíz
+try:
+    from database import GestorBD
+except ImportError:
+    import sys, os
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from database import GestorBD
+
 
 def paleta_clara():
-    """Paleta clara forzada para ignorar el modo oscuro del sistema operativo."""
     p = QPalette()
     p.setColor(QPalette.ColorRole.Window, QColor("#f4f6f9"))
     p.setColor(QPalette.ColorRole.WindowText, QColor("#333333"))
@@ -50,7 +57,7 @@ def crear_icono_flecha():
 
 ESTILO_VENTANA = """
     QDialog {
-        background-color: #bfbdbe;
+        background-color: #f4f6f9;
     }
     QLabel {
         font-size: 13px;
@@ -74,7 +81,6 @@ ESTILO_VENTANA = """
         color: #666666;
     }
 
-    /* ---- QComboBox ---- */
     QComboBox {
         background-color: #ffffff;
         border: 1px solid #dcdcdc;
@@ -118,7 +124,6 @@ ESTILO_VENTANA = """
         color: #0833a2;
     }
 
-    /* ---- QDateEdit ---- */
     QDateEdit {
         background-color: #ffffff;
         border: 1px solid #dcdcdc;
@@ -156,8 +161,6 @@ ESTILO_SCROLL = """
     QScrollArea > QWidget > QWidget {
         background: transparent;
     }
-
-    /* Barra de desplazamiento vertical: delgada, redondeada y discreta */
     QScrollBar:vertical {
         background: transparent;
         width: 8px;
@@ -172,53 +175,38 @@ ESTILO_SCROLL = """
     QScrollBar::handle:vertical:hover {
         background: #aeb6c2;
     }
-    QScrollBar::handle:vertical:pressed {
-        background: #8a93a3;
-    }
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
         height: 0px;
         background: none;
         border: none;
     }
-    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-        background: transparent;
-    }
 """
 
 
 class RegistroTrabajadores(QDialog):
-    """Ventana modal para el registro y modificación de trabajadores con diseño unificado"""
+    """Ventana modal para el registro y modificación de trabajadores conectada a MySQL"""
     def __init__(self, titulo="Registrar Trabajador", datos=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(titulo)
         self.setFixedSize(520, 620)
         self.setPalette(paleta_clara())
-
         self.setStyleSheet(ESTILO_VENTANA.replace("__FLECHA__", crear_icono_flecha()))
 
         layout_principal = QVBoxLayout(self)
         layout_principal.setContentsMargins(20, 20, 20, 20)
         layout_principal.setSpacing(15)
 
-        # Título principal de la ventana modal
         lbl_titulo = QLabel(titulo)
         lbl_titulo.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c2c2c; background: transparent;")
         layout_principal.addWidget(lbl_titulo)
 
-        # Tarjeta contenedora blanca principal
         card_contenedor = QFrame()
         card_contenedor.setObjectName("cardContenedor")
-        card_contenedor.setStyleSheet("""
-            QFrame#cardContenedor {
-                background-color: #ffffff;
-                border-radius: 15px;
-            }
-        """)
+        card_contenedor.setStyleSheet("QFrame#cardContenedor { background-color: #ffffff; border-radius: 15px; }")
         layout_card = QVBoxLayout(card_contenedor)
         layout_card.setContentsMargins(20, 20, 12, 20)
         layout_card.setSpacing(15)
 
-        # Área de formulario con desplazamiento vertical interno
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -233,9 +221,8 @@ class RegistroTrabajadores(QDialog):
         form_layout.setSpacing(14)
         form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        # Campos de entrada estructurados según la base de datos
         self.txt_cedula = QLineEdit()
-        self.txt_cedula.setPlaceholderText("Ej. 18783456")
+        self.txt_cedula.setPlaceholderText("Ej. 32270636")
 
         self.txt_nombres = QLineEdit()
         self.txt_nombres.setPlaceholderText("Nombres completos")
@@ -245,54 +232,22 @@ class RegistroTrabajadores(QDialog):
 
         self.date_nacimiento = QDateEdit()
         self.date_nacimiento.setCalendarPopup(True)
-        self.date_nacimiento.setDate(QDate(1990, 1, 1))
+        self.date_nacimiento.setDate(QDate(2006, 11, 18))
         self.date_nacimiento.setFixedHeight(36)
 
         calendario = self.date_nacimiento.calendarWidget()
         calendario.setPalette(paleta_clara())
         calendario.setStyleSheet("""
-            QCalendarWidget QWidget {
-                background-color: #ffffff;
-                color: #333333;
-                font-size: 13px;
-            }
-            QCalendarWidget QWidget#qt_calendar_navigationbar {
-                background-color: #163e7a;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-            }
-            QCalendarWidget QToolButton {
-                color: #ffffff;
-                background-color: transparent;
-                font-weight: bold;
-                border: none;
-                margin: 2px;
-                padding: 4px;
-                border-radius: 4px;
-            }
-            QCalendarWidget QToolButton:hover {
-                background-color: #3b6ba3;
-            }
-            QCalendarWidget QToolButton::menu-indicator {
-                image: none;
-            }
-            QCalendarWidget QTableView {
-                selection-background-color: #0833a2;
-                selection-color: #ffffff;
-                border: 1px solid #e0dede;
-                border-bottom-left-radius: 8px;
-                border-bottom-right-radius: 8px;
-            }
-            QCalendarWidget QAbstractItemView:enabled {
-                color: #333333;
-            }
-            QCalendarWidget QAbstractItemView:disabled {
-                color: #bbbbbb;
-            }
+            QCalendarWidget QWidget { background-color: #ffffff; color: #333333; font-size: 13px; }
+            QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #163e7a; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+            QCalendarWidget QToolButton { color: #ffffff; background-color: transparent; font-weight: bold; border: none; margin: 2px; padding: 4px; border-radius: 4px; }
+            QCalendarWidget QToolButton:hover { background-color: #3b6ba3; }
+            QCalendarWidget QTableView { selection-background-color: #0833a2; selection-color: #ffffff; border: 1px solid #e0dede; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+            QCalendarWidget QAbstractItemView:enabled { color: #333333; }
         """)
 
         self.txt_telefono = QLineEdit()
-        self.txt_telefono.setPlaceholderText("Ej. 04141234567")
+        self.txt_telefono.setPlaceholderText("Ej. 04128335530")
 
         self.txt_correo = QLineEdit()
         self.txt_correo.setPlaceholderText("correo@inces.gob.ve")
@@ -304,24 +259,19 @@ class RegistroTrabajadores(QDialog):
         self.txt_direccion.setPlaceholderText("Dirección de habitación")
 
         self.cmb_departamento = QComboBox()
-        self.cmb_departamento.addItems(["Tecnología", "Recursos Humanos", "Administración", "Formación"])
+        self.cmb_departamento.addItems(["Departamento de recursos humanos"])
 
         self.cmb_estado_laboral = QComboBox()
-        self.cmb_estado_laboral.addItems(["Fijo", "Temporal"])
+        self.cmb_estado_laboral.addItems(["Trabajador fijo"])
 
         self.cmb_centro_votacion = QComboBox()
-        self.cmb_centro_votacion.addItems([
-            "Liceo Bolivariano Monagas",
-            "Escuela Técnica Luis Caballero Mejías",
-            "U.E. Francisco de Miranda"
-        ])
+        self.cmb_centro_votacion.addItems(["Liceo Miguel José Sanz"])
 
         for combo in (self.cmb_sexo, self.cmb_departamento,
                       self.cmb_estado_laboral, self.cmb_centro_votacion):
             combo.setView(QListView())
             combo.setFixedHeight(36)
 
-        # Añadir al formulario
         form_layout.addRow("Cédula:", self.txt_cedula)
         form_layout.addRow("Nombres:", self.txt_nombres)
         form_layout.addRow("Apellidos:", self.txt_apellidos)
@@ -338,7 +288,6 @@ class RegistroTrabajadores(QDialog):
         layout_card.addWidget(scroll)
         layout_principal.addWidget(card_contenedor)
 
-        # Botones inferiores de acción
         layout_botones = QHBoxLayout()
         layout_botones.addStretch()
 
@@ -346,15 +295,8 @@ class RegistroTrabajadores(QDialog):
         self.btn_cancelar.setFixedSize(100, 36)
         self.btn_cancelar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_cancelar.setStyleSheet("""
-            QPushButton {
-                background-color: #163e7a;
-                color: white;
-                border-radius: 18px;
-                font-size: 13px;
-                font-weight: bold;
-                border: none;
-            }
-            QPushButton:hover { background-color: #235299; }
+            QPushButton { background-color: #e0dede; color: #333333; border-radius: 18px; font-size: 13px; font-weight: bold; border: none; }
+            QPushButton:hover { background-color: #d0d0d0; }
         """)
         self.btn_cancelar.clicked.connect(self.reject)
         layout_botones.addWidget(self.btn_cancelar)
@@ -363,23 +305,17 @@ class RegistroTrabajadores(QDialog):
         self.btn_guardar.setFixedSize(100, 36)
         self.btn_guardar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_guardar.setStyleSheet("""
-            QPushButton {
-                background-color: #163e7a;
-                color: white;
-                border-radius: 18px;
-                font-size: 13px;
-                font-weight: bold;
-                border: none;
-            }
+            QPushButton { background-color: #163e7a; color: white; border-radius: 18px; font-size: 13px; font-weight: bold; border: none; }
             QPushButton:hover { background-color: #235299; }
         """)
-        self.btn_guardar.clicked.connect(self.accept)
+        self.btn_guardar.clicked.connect(self.guardar_en_bd)
         layout_botones.addWidget(self.btn_guardar)
 
         layout_principal.addLayout(layout_botones)
 
-        # Cargar datos si se trata de una modificación
+        self.es_modificacion = False
         if datos:
+            self.es_modificacion = True
             self.txt_cedula.setText(str(datos.get("cedula", "")))
             self.txt_cedula.setReadOnly(True)
             nombres_split = datos.get("nombre", "").split(" ", 1)
@@ -389,27 +325,49 @@ class RegistroTrabajadores(QDialog):
             self.txt_correo.setText(datos.get("correo", ""))
             self.txt_direccion.setText(datos.get("direccion", ""))
 
-            self._seleccionar(self.cmb_sexo, datos.get("sexo"))
-            self._seleccionar(self.cmb_departamento, datos.get("departamento"))
-            self._seleccionar(self.cmb_estado_laboral, datos.get("estado_laboral"))
-            self._seleccionar(self.cmb_centro_votacion, datos.get("centro_votacion"))
+    def guardar_en_bd(self):
+        cedula = self.txt_cedula.text().strip()
+        nombres = self.txt_nombres.text().strip()
+        apellidos = self.txt_apellidos.text().strip()
+        fecha_nac = self.date_nacimiento.date().toString("yyyy-MM-dd")
+        telefono = self.txt_telefono.text().strip()
+        correo = self.txt_correo.text().strip()
+        sexo = self.cmb_sexo.currentText()
+        direccion = self.txt_direccion.text().strip()
 
-            fecha = datos.get("fecha_nacimiento")
-            if isinstance(fecha, QDate):
-                self.date_nacimiento.setDate(fecha)
-            elif isinstance(fecha, str) and fecha:
-                f = QDate.fromString(fecha, "yyyy-MM-dd")
-                if f.isValid():
-                    self.date_nacimiento.setDate(f)
-
-    @staticmethod
-    def _seleccionar(combo, texto):
-        if not texto:
+        if not cedula or not nombres or not apellidos:
+            QMessageBox.warning(self, "Campos incompletos", "Por favor, complete la cédula, nombres y apellidos.")
             return
-        idx = combo.findText(str(texto))
-        if idx >= 0:
-            combo.setCurrentIndex(idx)
 
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor()
+                if self.es_modificacion:
+                    sql = """
+                        UPDATE trabajadores SET 
+                        nombres = %s, apellidos = %s, fecha_nacimiento = %s, 
+                        telefono = %s, correo = %s, sexo = %s, direccion = %s
+                        WHERE cedula_trabajador = %s
+                    """
+                    cursor.execute(sql, (nombres, apellidos, fecha_nac, telefono, correo, sexo, direccion, cedula))
+                else:
+                    sql = """
+                        INSERT INTO trabajadores 
+                        (cedula_trabajador, nombres, apellidos, fecha_nacimiento, telefono, correo, sexo, direccion, id_departamento_fk, id_estado_laboral_fk, id_centro_votacion_fk)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1, 1, 1)
+                    """
+                    cursor.execute(sql, (cedula, nombres, apellidos, fecha_nac, telefono, correo, sexo, direccion))
+                
+                conexion.commit()
+                cursor.close()
+                QMessageBox.information(self, "Éxito", "Trabajador guardado correctamente en la base de datos.")
+                self.accept()
+            else:
+                QMessageBox.critical(self, "Error de Conexión", "No se pudo conectar con la base de datos MySQL.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Ocurrió un error al guardar:\n{e}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

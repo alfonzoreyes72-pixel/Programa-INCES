@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 08-11-2026 a las 18:46:00
+-- Tiempo de generación: 08-11-2026 a las 20:47:43
 -- Versión del servidor: 10.11.16-MariaDB
 -- Versión de PHP: 8.3.36
 
@@ -45,8 +45,16 @@ CREATE TABLE `centros_votacion` (
   `id_centro_votacion` int(11) NOT NULL,
   `nombre_centro` varchar(100) NOT NULL,
   `direccion_centro` varchar(255) NOT NULL,
-  `id_municipio_fk` int(11) NOT NULL
+  `id_municipio_fk` int(11) NOT NULL,
+  `parroquia_centro` varchar(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `centros_votacion`
+--
+
+INSERT INTO `centros_votacion` (`id_centro_votacion`, `nombre_centro`, `direccion_centro`, `id_municipio_fk`, `parroquia_centro`) VALUES
+(1, 'Liceo Miguel José Sanz', 'Centro de Maturín, Avenida Bolivar', 1, 'San Simon');
 
 -- --------------------------------------------------------
 
@@ -60,6 +68,14 @@ CREATE TABLE `departamentos` (
   `ubicacion_fisica` varchar(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `departamentos`
+--
+
+INSERT INTO `departamentos` (`id_departamento`, `nombre_departamento`, `ubicacion_fisica`) VALUES
+(1, 'Departamento de recursos humanos', 'Ubicado la lado de la biblioteca'),
+(2, 'Departamento de recursos humanos', 'Ubicado la lado de la biblioteca');
+
 -- --------------------------------------------------------
 
 --
@@ -71,6 +87,13 @@ CREATE TABLE `estados` (
   `nombre_estado` varchar(60) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `estados`
+--
+
+INSERT INTO `estados` (`id_estado`, `nombre_estado`) VALUES
+(1, 'Monagas');
+
 -- --------------------------------------------------------
 
 --
@@ -81,6 +104,13 @@ CREATE TABLE `estados_laborales` (
   `id_estado_laboral` int(11) NOT NULL,
   `descripcion_estado` varchar(60) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `estados_laborales`
+--
+
+INSERT INTO `estados_laborales` (`id_estado_laboral`, `descripcion_estado`) VALUES
+(1, 'Trabajador fijo');
 
 -- --------------------------------------------------------
 
@@ -102,9 +132,15 @@ CREATE TABLE `incidencias` (
 CREATE TABLE `municipios` (
   `id_municipio` int(11) NOT NULL,
   `nombre_municipio` varchar(60) NOT NULL,
-  `parroquia_municipio` varchar(100) NOT NULL,
   `id_estado_fk` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `municipios`
+--
+
+INSERT INTO `municipios` (`id_municipio`, `nombre_municipio`, `id_estado_fk`) VALUES
+(1, 'Maturin', 1);
 
 -- --------------------------------------------------------
 
@@ -151,6 +187,13 @@ CREATE TABLE `trabajadores` (
   `id_estado_laboral_fk` int(11) NOT NULL,
   `id_centro_votacion_fk` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `trabajadores`
+--
+
+INSERT INTO `trabajadores` (`cedula_trabajador`, `nombres`, `apellidos`, `fecha_nacimiento`, `telefono`, `correo`, `sexo`, `direccion`, `id_departamento_fk`, `id_estado_laboral_fk`, `id_centro_votacion_fk`) VALUES
+(32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'masculino', 'Invasión de la Puente, Calle 10', 1, 1, 1);
 
 -- --------------------------------------------------------
 
@@ -260,25 +303,25 @@ ALTER TABLE `asistencias`
 -- AUTO_INCREMENT de la tabla `centros_votacion`
 --
 ALTER TABLE `centros_votacion`
-  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `departamentos`
 --
 ALTER TABLE `departamentos`
-  MODIFY `id_departamento` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_departamento` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `estados`
 --
 ALTER TABLE `estados`
-  MODIFY `id_estado` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_estado` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `estados_laborales`
 --
 ALTER TABLE `estados_laborales`
-  MODIFY `id_estado_laboral` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_estado_laboral` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `incidencias`
@@ -290,7 +333,7 @@ ALTER TABLE `incidencias`
 -- AUTO_INCREMENT de la tabla `municipios`
 --
 ALTER TABLE `municipios`
-  MODIFY `id_municipio` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_municipio` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `novedades_operativas`

@@ -5,11 +5,19 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
-# Importación de la ventana modal de registro (compatible si están en la misma carpeta)
+# Importación de la ventana modal de registro
 try:
     from .registro_trabajadores import RegistroTrabajadores
 except ImportError:
     from registro_trabajadores import RegistroTrabajadores
+
+# Importación del gestor de base de datos
+try:
+    from database import GestorBD
+except ImportError:
+    import sys, os
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from database import GestorBD
 
 
 class FilaTrabajador(QFrame):
@@ -39,7 +47,7 @@ class FilaTrabajador(QFrame):
         self.lbl_nombre = QLabel(self.datos["nombre"])
         self.lbl_nombre.setStyleSheet("font-size: 14px; font-weight: bold; color: #333333; border: none; background: transparent;")
         
-        self.lbl_cedula = QLabel(self.datos["cedula"])
+        self.lbl_cedula = QLabel(str(self.datos["cedula"]))
         self.lbl_cedula.setStyleSheet("font-size: 14px; font-weight: bold; color: #555555; border: none; background: transparent;")
 
         layout.addWidget(self.lbl_nombre)
@@ -74,9 +82,9 @@ class VentanaTrabajadores(QWidget):
         layout_tarjetas = QHBoxLayout()
         layout_tarjetas.setSpacing(15)
 
-        self.card_total = self.crear_tarjeta_metrica("Total Trabajadores", "1,003", "#163e7a")
-        self.card_fijo = self.crear_tarjeta_metrica("Contrato Fijo", "2,160", "#235299")
-        self.card_temporal = self.crear_tarjeta_metrica("Contrato Temporal", "1,691", "#3b6ba3")
+        self.card_total = self.crear_tarjeta_metrica("Total Trabajadores", "0", "#163e7a")
+        self.card_fijo = self.crear_tarjeta_metrica("Contrato Fijo", "0", "#235299")
+        self.card_temporal = self.crear_tarjeta_metrica("Contrato Temporal", "0", "#3b6ba3")
 
         layout_tarjetas.addWidget(self.card_total)
         layout_tarjetas.addWidget(self.card_fijo)
@@ -102,12 +110,10 @@ class VentanaTrabajadores(QWidget):
         layout_panel.setContentsMargins(20, 20, 20, 20)
         layout_panel.setSpacing(15)
 
-        # Título "Listado de trabajadores"
         self.lbl_titulo_lista = QLabel("Listado de trabajadores")
         self.lbl_titulo_lista.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c2c2c; border: none; background: transparent;")
         layout_panel.addWidget(self.lbl_titulo_lista)
 
-        # Controles debajo del título
         controles_layout = QHBoxLayout()
         controles_layout.setSpacing(10)
 
@@ -167,7 +173,6 @@ class VentanaTrabajadores(QWidget):
 
         layout_panel.addLayout(controles_layout)
 
-        # Scroll Area para el listado personalizado
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
@@ -186,7 +191,7 @@ class VentanaTrabajadores(QWidget):
         layout_principal.addWidget(self.contenedor_izq, stretch=3)
 
         # =================================================================
-        # 3. TARJETA BLANCA LATERAL DE DETALLES CON SCROLL INTERNO
+        # 3. TARJETA BLANCA LATERAL DE DETALLES
         # =================================================================
         self.panel_detalles = QFrame()
         self.panel_detalles.setObjectName("panelDetalles")
@@ -203,7 +208,6 @@ class VentanaTrabajadores(QWidget):
         layout_detalles.setContentsMargins(20, 20, 20, 20)
         layout_detalles.setSpacing(12)
 
-        # Cabecera con botón de cerrar
         header_detalles = QHBoxLayout()
         header_detalles.addStretch()
         self.btn_cerrar_detalle = QPushButton("✕")
@@ -223,7 +227,6 @@ class VentanaTrabajadores(QWidget):
         header_detalles.addWidget(self.btn_cerrar_detalle)
         layout_detalles.addLayout(header_detalles)
 
-        # Círculo Avatar Estilo WhatsApp (Centrado, fijo arriba)
         self.lbl_avatar = QLabel("A")
         self.lbl_avatar.setFixedSize(75, 75)
         self.lbl_avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -243,7 +246,6 @@ class VentanaTrabajadores(QWidget):
         avatar_layout.addStretch()
         layout_detalles.addLayout(avatar_layout)
 
-        # Nombre del Trabajador Centrado (Fijo arriba)
         self.lbl_nombre_detalle = QLabel("Nombre del Trabajador")
         self.lbl_nombre_detalle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_nombre_detalle.setWordWrap(True)
@@ -251,47 +253,25 @@ class VentanaTrabajadores(QWidget):
         self.lbl_nombre_detalle.setStyleSheet("font-size: 16px; font-weight: bold; color: #163e7a; border: none; background: transparent;")
         layout_detalles.addWidget(self.lbl_nombre_detalle)
 
-        # Línea de separación sutil
         separador = QFrame()
         separador.setFixedHeight(1)
         separador.setStyleSheet("background-color: #f0f0f0; border: none;")
         layout_detalles.addWidget(separador)
 
-        # --- QSCROLLAREA INTERNO PARA LOS DETALLES EXTENSOS ---
         self.scroll_detalles = QScrollArea()
         self.scroll_detalles.setWidgetResizable(True)
         self.scroll_detalles.setStyleSheet("""
-            QScrollArea {
-                border: none;
-                background: transparent;
-            }
-            QScrollBar:vertical {
-                background: #f4f6f9;
-                width: 8px;
-                border-radius: 4px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #c0c0c0;
-                border-radius: 4px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #a0a0a0;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical { background: #f4f6f9; width: 8px; border-radius: 4px; margin: 0px; }
+            QScrollBar::handle:vertical { background: #c0c0c0; border-radius: 4px; min-height: 20px; }
         """)
 
-        # Contenedor interno del scroll de detalles
         self.contenido_scroll_detalles = QWidget()
         self.contenido_scroll_detalles.setStyleSheet("background: transparent; border: none;")
         layout_scroll_detalles = QVBoxLayout(self.contenido_scroll_detalles)
         layout_scroll_detalles.setContentsMargins(0, 0, 5, 0)
         layout_scroll_detalles.setSpacing(10)
 
-        # Información detallada adicional (Habilitada para seleccionarse y copiarse con el mouse)
         self.lbl_detalles_contenido = QLabel()
         self.lbl_detalles_contenido.setWordWrap(True)
         self.lbl_detalles_contenido.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -305,7 +285,8 @@ class VentanaTrabajadores(QWidget):
         layout_principal.addWidget(self.panel_detalles)
         self.panel_detalles.hide()
 
-        self.cargar_trabajadores_ejemplo()
+        # Cargar datos reales desde la base de datos MySQL
+        self.cargar_trabajadores_desde_bd()
 
     def crear_tarjeta_metrica(self, titulo, valor, color_borde):
         card = QFrame()
@@ -326,29 +307,58 @@ class VentanaTrabajadores(QWidget):
         lbl_tit.setStyleSheet("font-size: 12px; font-weight: bold; color: #777777; border: none; background: transparent;")
         
         lbl_val = QLabel(valor)
+        lbl_val.setObjectName(f"val_{titulo}")
         lbl_val.setStyleSheet(f"font-size: 22px; font-weight: bold; color: {color_borde}; border: none; background: transparent;")
         
         layout.addWidget(lbl_tit)
         layout.addWidget(lbl_val)
         return card
 
-    def cargar_trabajadores_ejemplo(self):
-        trabajadores = [
-            {"nombre": "Carlos Arciniegas", "cedula": "18.783.456", "departamento": "Tecnología", "contrato": "Fijo"},
-            {"nombre": "Angel Malavé", "cedula": "32.745.323", "departamento": "Recursos Humanos", "contrato": "Temporal"},
-            {"nombre": "Fernando AA", "cedula": "24.985.569", "departamento": "Administración", "contrato": "Fijo"},
-            {"nombre": "Alanis ElNOQ", "cedula": "29.112.334", "departamento": "Formación", "contrato": "Fijo"},
-            {"nombre": "Carla A.", "cedula": "31.116.632", "departamento": "Sistemas", "contrato": "Temporal"},
-            {"nombre": "Jesús López", "cedula": "27.559.871", "departamento": "Operaciones", "contrato": "Fijo"}
-        ]
+    def cargar_trabajadores_desde_bd(self):
+        """Carga los trabajadores directamente desde la base de datos MySQL"""
+        # Limpiar filas anteriores (excepto el stretch final)
+        while self.layout_filas.count() > 1:
+            item = self.layout_filas.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-        for t in trabajadores:
-            fila = FilaTrabajador(t)
-            fila.cliqueado.connect(self.mostrar_detalles_trabajador)
-            self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor(dictionary=True)
+                sql = """
+                    SELECT 
+                        t.cedula_trabajador AS cedula,
+                        CONCAT(t.nombres, ' ', t.apellidos) AS nombre,
+                        COALESCE(d.nombre_departamento, 'General') AS departamento,
+                        COALESCE(el.descripcion_estado, 'Fijo') AS contrato,
+                        t.telefono,
+                        t.correo,
+                        t.direccion
+                    FROM trabajadores t
+                    LEFT JOIN departamentos d ON t.id_departamento_fk = d.id_departamento
+                    LEFT JOIN estados_laborales el ON t.id_estado_laboral_fk = el.id_estado_laboral
+                """
+                cursor.execute(sql)
+                trabajadores = cursor.fetchall()
+                cursor.close()
+
+                for t in trabajadores:
+                    fila = FilaTrabajador(t)
+                    fila.cliqueado.connect(self.mostrar_detalles_trabajador)
+                    self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
+
+                # Actualizar contador de métricas
+                total = len(trabajadores)
+                val_total = self.card_total.findChild(QLabel, "val_Total Trabajadores")
+                if val_total:
+                    val_total.setText(str(total))
+        except Exception as e:
+            print(f"Error al conectar con la base de datos para listar trabajadores: {e}")
 
     def mostrar_detalles_trabajador(self, datos):
-        self.trabajador_seleccionado = datos  # Guardamos la referencia para el botón modificar
+        self.trabajador_seleccionado = datos
         nombre = datos['nombre']
         inicial = nombre[0].upper() if nombre else "?"
         
@@ -359,10 +369,9 @@ class VentanaTrabajadores(QWidget):
         <b>Cédula:</b> {datos['cedula']}<br><br>
         <b>Departamento:</b> {datos['departamento']}<br><br>
         <b>Tipo Contrato:</b> {datos['contrato']}<br><br>
-        <b>Correo:</b> trabajador@inces.gob.ve<br><br>
-        <b>Teléfono:</b> 0414-1234567<br><br>
-        <b>Fecha de Ingreso:</b> 15/03/2022<br><br>
-        <b>Ubicación:</b> Sede Principal Monagas
+        <b>Correo:</b> {datos.get('correo', 'N/D')}<br><br>
+        <b>Teléfono:</b> {datos.get('telefono', 'N/D')}<br><br>
+        <b>Dirección:</b> {datos.get('direccion', 'N/D')}
         """
         self.lbl_detalles_contenido.setText(texto)
         self.panel_detalles.show()
@@ -372,11 +381,10 @@ class VentanaTrabajadores(QWidget):
         self.panel_detalles.hide()
 
     def abrir_dialogo_agregar(self):
-        """Abre la ventana modal de registro de trabajadores"""
+        """Abre la ventana modal de registro y actualiza la lista si se guarda"""
         dialogo = RegistroTrabajadores("Registrar Nuevo Trabajador", parent=self)
         if dialogo.exec() == QDialog.DialogCode.Accepted:
-            # Aquí posteriormente conectaremos la inserción a la base de datos MySQL
-            pass
+            self.cargar_trabajadores_desde_bd()
 
     def abrir_dialogo_modificar(self):
         """Abre la ventana modal para modificar al trabajador seleccionado"""
@@ -384,8 +392,7 @@ class VentanaTrabajadores(QWidget):
             return
         dialogo = RegistroTrabajadores("Modificar Trabajador", datos=self.trabajador_seleccionado, parent=self)
         if dialogo.exec() == QDialog.DialogCode.Accepted:
-            # Aquí posteriormente conectaremos la actualización en la base de datos MySQL
-            pass
+            self.cargar_trabajadores_desde_bd()
 
 
 if __name__ == "__main__":
