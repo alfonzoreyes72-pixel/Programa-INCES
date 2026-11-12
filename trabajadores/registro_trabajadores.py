@@ -57,7 +57,7 @@ def crear_icono_flecha():
 
 ESTILO_VENTANA = """
     QDialog {
-        background-color: #f4f6f9;
+        background-color: #bfbdbe;
     }
     QLabel {
         font-size: 13px;
@@ -184,11 +184,11 @@ ESTILO_SCROLL = """
 
 
 class RegistroTrabajadores(QDialog):
-    """Ventana modal para el registro y modificación de trabajadores conectada a MySQL"""
+    """Ventana modal para el registro y modificación de trabajadores con selectores en cascada corregidos"""
     def __init__(self, titulo="Registrar Trabajador", datos=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(titulo)
-        self.setFixedSize(520, 620)
+        self.setFixedSize(520, 640)
         self.setPalette(paleta_clara())
         self.setStyleSheet(ESTILO_VENTANA.replace("__FLECHA__", crear_icono_flecha()))
 
@@ -259,18 +259,24 @@ class RegistroTrabajadores(QDialog):
         self.txt_direccion.setPlaceholderText("Dirección de habitación")
 
         self.cmb_departamento = QComboBox()
-        self.cmb_departamento.addItems(["Departamento de recursos humanos"])
-
         self.cmb_estado_laboral = QComboBox()
-        self.cmb_estado_laboral.addItems(["Trabajador fijo"])
 
+        # Selectores en cascada para la ubicación del centro de votación
+        self.cmb_estado_cv = QComboBox()
+        self.cmb_municipio_cv = QComboBox()
         self.cmb_centro_votacion = QComboBox()
-        self.cmb_centro_votacion.addItems(["Liceo Miguel José Sanz"])
 
-        for combo in (self.cmb_sexo, self.cmb_departamento,
-                      self.cmb_estado_laboral, self.cmb_centro_votacion):
+        for combo in (self.cmb_sexo, self.cmb_departamento, self.cmb_estado_laboral,
+                      self.cmb_estado_cv, self.cmb_municipio_cv, self.cmb_centro_votacion):
             combo.setView(QListView())
             combo.setFixedHeight(36)
+
+        # Cargar catálogos iniciales desde la base de datos
+        self.cargar_datos_maestros()
+
+        # Conectar señales enlazadas de forma segura para evitar bucles de eventos
+        self.cmb_estado_cv.currentIndexChanged.connect(self.cargar_municipios)
+        self.cmb_municipio_cv.currentIndexChanged.connect(self.cargar_centros_votacion)
 
         form_layout.addRow("Cédula:", self.txt_cedula)
         form_layout.addRow("Nombres:", self.txt_nombres)
@@ -282,7 +288,9 @@ class RegistroTrabajadores(QDialog):
         form_layout.addRow("Dirección:", self.txt_direccion)
         form_layout.addRow("Departamento:", self.cmb_departamento)
         form_layout.addRow("Estado Laboral:", self.cmb_estado_laboral)
-        form_layout.addRow("Centro Votación:", self.cmb_centro_votacion)
+        form_layout.addRow("Estado (Votación):", self.cmb_estado_cv)
+        form_layout.addRow("Municipio (Votación):", self.cmb_municipio_cv)
+        form_layout.addRow("Centro de Votación:", self.cmb_centro_votacion)
 
         scroll.setWidget(contenedor_form)
         layout_card.addWidget(scroll)
@@ -325,6 +333,92 @@ class RegistroTrabajadores(QDialog):
             self.txt_correo.setText(datos.get("correo", ""))
             self.txt_direccion.setText(datos.get("direccion", ""))
 
+    def cargar_datos_maestros(self):
+        """Carga departamentos, estados laborales y estados geográficos desde la BD"""
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor(dictionary=True)
+
+                # Departamentos
+                cursor.execute("SELECT id_departamento, nombre_departamento FROM departamentos")
+                for d in cursor.fetchall():
+                    self.cmb_departamento.addItem(d["nombre_departamento"], d["id_departamento"])
+
+                # Estados Laborales
+                cursor.execute("SELECT id_estado_laboral, descripcion_estado FROM estados_laborales")
+                for el in cursor.fetchall():
+                    self.cmb_estado_laboral.addItem(el["descripcion_estado"], el["id_estado_laboral"])
+
+                # Estados Geográficos
+                cursor.execute("SELECT id_estado, nombre_estado FROM estados")
+                estados = cursor.fetchall()
+                for est in estados:
+                    self.cmb_estado_cv.addItem(est["nombre_estado"], est["id_estado"])
+
+                cursor.close()
+
+                # Disparar manualmente la carga de municipios para el primer estado si existe
+                if estados:
+                    self.cargar_municipios()
+        except Exception as e:
+            print(f"Error al cargar datos maestros: {e}")
+
+    def cargar_municipios(self):
+        """Carga los municipios correspondientes al estado seleccionado"""
+        self.cmb_municipio_cv.clear()
+        
+        id_estado = self.cmb_estado_cv.currentData()
+        if id_estado is None:
+            return
+
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor(dictionary=True)
+                cursor.execute("SELECT id_municipio, nombre_municipio FROM municipios WHERE id_estado_fk = %s", (id_estado,))
+                municipios = cursor.fetchall()
+                for mun in municipios:
+                    self.cmb_municipio_cv.addItem(mun["nombre_municipio"], mun["id_municipio"])
+                cursor.close()
+
+                # Disparar la carga de centros de votación para el primer municipio
+                if municipios:
+                    self.cargar_centros_votacion()
+                else:
+                    self.cmb_centro_votacion.clear()
+        except Exception as e:
+            print(f"Error al cargar municipios: {e}")
+
+    def cargar_centros_votacion(self):
+        """Carga los centros vinculados a las parroquias del municipio seleccionado"""
+        self.cmb_centro_votacion.clear()
+
+        id_municipio = self.cmb_municipio_cv.currentData()
+        if id_municipio is None:
+            return
+
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor(dictionary=True)
+                # Consulta ajustada a la nueva estructura: centros_votacion -> parroquias -> municipios
+                sql = """
+                    SELECT DISTINCT c.id_centro_votacion, c.nombre_centro 
+                    FROM centros_votacion c
+                    JOIN parroquias p ON c.id_parroquia_fk = p.id_parroquia
+                    WHERE p.id_municipio_fk = %s
+                """
+                cursor.execute(sql, (id_municipio,))
+                for cv in cursor.fetchall():
+                    self.cmb_centro_votacion.addItem(cv["nombre_centro"], cv["id_centro_votacion"])
+                cursor.close()
+        except Exception as e:
+            print(f"Error al cargar centros de votación: {e}")
+
     def guardar_en_bd(self):
         cedula = self.txt_cedula.text().strip()
         nombres = self.txt_nombres.text().strip()
@@ -334,9 +428,17 @@ class RegistroTrabajadores(QDialog):
         correo = self.txt_correo.text().strip()
         sexo = self.cmb_sexo.currentText()
         direccion = self.txt_direccion.text().strip()
+        
+        id_departamento = self.cmb_departamento.currentData()
+        id_estado_laboral = self.cmb_estado_laboral.currentData()
+        id_centro_votacion = self.cmb_centro_votacion.currentData()
 
         if not cedula or not nombres or not apellidos:
             QMessageBox.warning(self, "Campos incompletos", "Por favor, complete la cédula, nombres y apellidos.")
+            return
+
+        if not id_centro_votacion:
+            QMessageBox.warning(self, "Centro de Votación", "Por favor, seleccione un centro de votación válido.")
             return
 
         try:
@@ -348,17 +450,20 @@ class RegistroTrabajadores(QDialog):
                     sql = """
                         UPDATE trabajadores SET 
                         nombres = %s, apellidos = %s, fecha_nacimiento = %s, 
-                        telefono = %s, correo = %s, sexo = %s, direccion = %s
+                        telefono = %s, correo = %s, sexo = %s, direccion = %s,
+                        id_departamento_fk = %s, id_estado_laboral_fk = %s, id_centro_votacion_fk = %s
                         WHERE cedula_trabajador = %s
                     """
-                    cursor.execute(sql, (nombres, apellidos, fecha_nac, telefono, correo, sexo, direccion, cedula))
+                    cursor.execute(sql, (nombres, apellidos, fecha_nac, telefono, correo, sexo, direccion, 
+                                         id_departamento, id_estado_laboral, id_centro_votacion, cedula))
                 else:
                     sql = """
                         INSERT INTO trabajadores 
                         (cedula_trabajador, nombres, apellidos, fecha_nacimiento, telefono, correo, sexo, direccion, id_departamento_fk, id_estado_laboral_fk, id_centro_votacion_fk)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1, 1, 1)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """
-                    cursor.execute(sql, (cedula, nombres, apellidos, fecha_nac, telefono, correo, sexo, direccion))
+                    cursor.execute(sql, (cedula, nombres, apellidos, fecha_nac, telefono, correo, sexo, direccion, 
+                                         id_departamento, id_estado_laboral, id_centro_votacion))
                 
                 conexion.commit()
                 cursor.close()

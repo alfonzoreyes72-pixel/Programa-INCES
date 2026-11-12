@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 08-11-2026 a las 20:47:43
+-- Tiempo de generación: 12-11-2026 a las 05:03:13
 -- Versión del servidor: 10.11.16-MariaDB
 -- Versión de PHP: 8.3.36
 
@@ -45,16 +45,15 @@ CREATE TABLE `centros_votacion` (
   `id_centro_votacion` int(11) NOT NULL,
   `nombre_centro` varchar(100) NOT NULL,
   `direccion_centro` varchar(255) NOT NULL,
-  `id_municipio_fk` int(11) NOT NULL,
-  `parroquia_centro` varchar(100) NOT NULL
+  `id_parroquia_fk` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `centros_votacion`
 --
 
-INSERT INTO `centros_votacion` (`id_centro_votacion`, `nombre_centro`, `direccion_centro`, `id_municipio_fk`, `parroquia_centro`) VALUES
-(1, 'Liceo Miguel José Sanz', 'Centro de Maturín, Avenida Bolivar', 1, 'San Simon');
+INSERT INTO `centros_votacion` (`id_centro_votacion`, `nombre_centro`, `direccion_centro`, `id_parroquia_fk`) VALUES
+(2, 'Liceo Miguel José Sanz', 'Avenida Bolívar , diagonal a la Redoma Juana Ramírez \"La Avanzadora\" y al lado de la Casa de la Cultura, en el centro de Maturín', 1);
 
 -- --------------------------------------------------------
 
@@ -73,8 +72,7 @@ CREATE TABLE `departamentos` (
 --
 
 INSERT INTO `departamentos` (`id_departamento`, `nombre_departamento`, `ubicacion_fisica`) VALUES
-(1, 'Departamento de recursos humanos', 'Ubicado la lado de la biblioteca'),
-(2, 'Departamento de recursos humanos', 'Ubicado la lado de la biblioteca');
+(3, 'Recursos Humanos', 'al lado de la biblioteca ');
 
 -- --------------------------------------------------------
 
@@ -92,7 +90,8 @@ CREATE TABLE `estados` (
 --
 
 INSERT INTO `estados` (`id_estado`, `nombre_estado`) VALUES
-(1, 'Monagas');
+(2, 'Monagas'),
+(3, 'Sucre');
 
 -- --------------------------------------------------------
 
@@ -110,7 +109,7 @@ CREATE TABLE `estados_laborales` (
 --
 
 INSERT INTO `estados_laborales` (`id_estado_laboral`, `descripcion_estado`) VALUES
-(1, 'Trabajador fijo');
+(2, 'Trabajador fijo');
 
 -- --------------------------------------------------------
 
@@ -140,7 +139,7 @@ CREATE TABLE `municipios` (
 --
 
 INSERT INTO `municipios` (`id_municipio`, `nombre_municipio`, `id_estado_fk`) VALUES
-(1, 'Maturin', 1);
+(5, 'Maturin', 2);
 
 -- --------------------------------------------------------
 
@@ -160,6 +159,25 @@ CREATE TABLE `novedades_operativas` (
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `parroquias`
+--
+
+CREATE TABLE `parroquias` (
+  `id_parroquia` int(11) NOT NULL,
+  `nombre_parroquia` varchar(100) NOT NULL,
+  `id_municipio_fk` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `parroquias`
+--
+
+INSERT INTO `parroquias` (`id_parroquia`, `nombre_parroquia`, `id_municipio_fk`) VALUES
+(1, 'San Simon', 5);
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `roles`
 --
 
@@ -167,6 +185,15 @@ CREATE TABLE `roles` (
   `id_rol` int(11) NOT NULL,
   `nombre_rol` varchar(50) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `roles`
+--
+
+INSERT INTO `roles` (`id_rol`, `nombre_rol`) VALUES
+(1, 'Administrador'),
+(2, 'Recursos Humanos'),
+(3, 'Secretario/a');
 
 -- --------------------------------------------------------
 
@@ -193,7 +220,7 @@ CREATE TABLE `trabajadores` (
 --
 
 INSERT INTO `trabajadores` (`cedula_trabajador`, `nombres`, `apellidos`, `fecha_nacimiento`, `telefono`, `correo`, `sexo`, `direccion`, `id_departamento_fk`, `id_estado_laboral_fk`, `id_centro_votacion_fk`) VALUES
-(32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'masculino', 'Invasión de la Puente, Calle 10', 1, 1, 1);
+(32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'masculino', 'Invasión de la Puente, Calle 10', 3, 2, 2);
 
 -- --------------------------------------------------------
 
@@ -203,11 +230,18 @@ INSERT INTO `trabajadores` (`cedula_trabajador`, `nombres`, `apellidos`, `fecha_
 
 CREATE TABLE `usuarios` (
   `id_usuario` int(11) NOT NULL,
-  `nombre_usuario` int(100) NOT NULL,
+  `nombre_usuario` varchar(20) NOT NULL,
   `contraseña` varchar(60) NOT NULL,
   `cedula_trabajador_fk` int(11) NOT NULL,
   `id_rol_fk` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `usuarios`
+--
+
+INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contraseña`, `cedula_trabajador_fk`, `id_rol_fk`) VALUES
+(1, 'Rolando', '1234', 32270636, 1);
 
 --
 -- Índices para tablas volcadas
@@ -225,7 +259,7 @@ ALTER TABLE `asistencias`
 --
 ALTER TABLE `centros_votacion`
   ADD PRIMARY KEY (`id_centro_votacion`),
-  ADD KEY `id_municipio_fk` (`id_municipio_fk`);
+  ADD KEY `id_parroquia_fk` (`id_parroquia_fk`);
 
 --
 -- Indices de la tabla `departamentos`
@@ -267,6 +301,13 @@ ALTER TABLE `novedades_operativas`
   ADD KEY `id_incidencia_fk` (`id_incidencia_fk`);
 
 --
+-- Indices de la tabla `parroquias`
+--
+ALTER TABLE `parroquias`
+  ADD PRIMARY KEY (`id_parroquia`),
+  ADD KEY `id_municipio_fk` (`id_municipio_fk`);
+
+--
 -- Indices de la tabla `roles`
 --
 ALTER TABLE `roles`
@@ -303,25 +344,25 @@ ALTER TABLE `asistencias`
 -- AUTO_INCREMENT de la tabla `centros_votacion`
 --
 ALTER TABLE `centros_votacion`
-  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `departamentos`
 --
 ALTER TABLE `departamentos`
-  MODIFY `id_departamento` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id_departamento` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `estados`
 --
 ALTER TABLE `estados`
-  MODIFY `id_estado` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_estado` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `estados_laborales`
 --
 ALTER TABLE `estados_laborales`
-  MODIFY `id_estado_laboral` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_estado_laboral` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `incidencias`
@@ -333,7 +374,7 @@ ALTER TABLE `incidencias`
 -- AUTO_INCREMENT de la tabla `municipios`
 --
 ALTER TABLE `municipios`
-  MODIFY `id_municipio` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_municipio` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `novedades_operativas`
@@ -342,16 +383,22 @@ ALTER TABLE `novedades_operativas`
   MODIFY `id_novedad` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT de la tabla `parroquias`
+--
+ALTER TABLE `parroquias`
+  MODIFY `id_parroquia` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT de la tabla `roles`
 --
 ALTER TABLE `roles`
-  MODIFY `id_rol` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_rol` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Restricciones para tablas volcadas
@@ -367,7 +414,7 @@ ALTER TABLE `asistencias`
 -- Filtros para la tabla `centros_votacion`
 --
 ALTER TABLE `centros_votacion`
-  ADD CONSTRAINT `centros_votacion_ibfk_1` FOREIGN KEY (`id_municipio_fk`) REFERENCES `municipios` (`id_municipio`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `centros_votacion_ibfk_1` FOREIGN KEY (`id_parroquia_fk`) REFERENCES `parroquias` (`id_parroquia`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `municipios`
@@ -381,6 +428,12 @@ ALTER TABLE `municipios`
 ALTER TABLE `novedades_operativas`
   ADD CONSTRAINT `novedades_operativas_ibfk_1` FOREIGN KEY (`id_incidencia_fk`) REFERENCES `incidencias` (`id_incidencia`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `novedades_operativas_ibfk_2` FOREIGN KEY (`cedula_trabajador_fk`) REFERENCES `trabajadores` (`cedula_trabajador`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Filtros para la tabla `parroquias`
+--
+ALTER TABLE `parroquias`
+  ADD CONSTRAINT `parroquias_ibfk_1` FOREIGN KEY (`id_municipio_fk`) REFERENCES `municipios` (`id_municipio`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `trabajadores`

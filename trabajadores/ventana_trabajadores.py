@@ -59,11 +59,51 @@ class FilaTrabajador(QFrame):
         super().mousePressEvent(event)
 
 
+class TarjetaMetricaInteractiva(QFrame):
+    """Tarjeta superior interactiva que permite filtrar al hacer clic"""
+    cliqueada = pyqtSignal(str)
+
+    def __init__(self, titulo, valor, color_borde, filtro_tipo="", parent=None):
+        super().__init__(parent)
+        self.filtro_tipo = filtro_tipo
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: #ffffff;
+                border-radius: 15px;
+                border-left: 6px solid {color_borde};
+                border-top: none;
+                border-right: none;
+                border-bottom: none;
+            }}
+            QFrame:hover {{
+                background-color: #f8fafc;
+            }}
+        """)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(15, 12, 15, 12)
+        
+        self.lbl_tit = QLabel(titulo)
+        self.lbl_tit.setStyleSheet("font-size: 12px; font-weight: bold; color: #777777; border: none; background: transparent;")
+        
+        self.lbl_val = QLabel(valor)
+        self.lbl_val.setStyleSheet(f"font-size: 22px; font-weight: bold; color: {color_borde}; border: none; background: transparent;")
+        
+        layout.addWidget(self.lbl_tit)
+        layout.addWidget(self.lbl_val)
+
+    def mousePressEvent(self, event):
+        self.cliqueada.emit(self.filtro_tipo)
+        super().mousePressEvent(event)
+
+
 class VentanaTrabajadores(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
         self.trabajador_seleccionado = None
+        self.filtro_actual = "todos"  # Filtro activo: "todos", "fijo" o "foraneos"
 
         # Layout principal horizontal
         layout_principal = QHBoxLayout(self)
@@ -77,18 +117,23 @@ class VentanaTrabajadores(QWidget):
         layout_izq.setSpacing(15)
 
         # =================================================================
-        # 1. TRES TARJETAS DE WIDGETS SUPERIORES
+        # 1. TRES TARJETAS DE WIDGETS SUPERIORES (degradado azul oscuro -> claro)
         # =================================================================
         layout_tarjetas = QHBoxLayout()
         layout_tarjetas.setSpacing(15)
 
-        self.card_total = self.crear_tarjeta_metrica("Total Trabajadores", "0", "#163e7a")
-        self.card_fijo = self.crear_tarjeta_metrica("Contrato Fijo", "0", "#235299")
-        self.card_temporal = self.crear_tarjeta_metrica("Contrato Temporal", "0", "#3b6ba3")
+        self.card_total = TarjetaMetricaInteractiva("Total Trabajadores", "0", "#163e7a", "todos")
+        self.card_total.cliqueada.connect(self.cambiar_filtro_metrica)
+
+        self.card_fijo = TarjetaMetricaInteractiva("Contrato Fijo", "0", "#235299", "fijo")
+        self.card_fijo.cliqueada.connect(self.cambiar_filtro_metrica)
+
+        self.card_foraneos = TarjetaMetricaInteractiva("Votantes Foráneos", "0", "#3b6ba3", "foraneos")
+        self.card_foraneos.cliqueada.connect(self.cambiar_filtro_metrica)
 
         layout_tarjetas.addWidget(self.card_total)
         layout_tarjetas.addWidget(self.card_fijo)
-        layout_tarjetas.addWidget(self.card_temporal)
+        layout_tarjetas.addWidget(self.card_foraneos)
         layout_izq.addLayout(layout_tarjetas)
 
         # =================================================================
@@ -154,8 +199,8 @@ class VentanaTrabajadores(QWidget):
         controles_layout.addStretch()
 
         self.txt_buscar = QLineEdit()
-        self.txt_buscar.setPlaceholderText("🔍 Buscar trabajador...")
-        self.txt_buscar.setFixedSize(220, 36)
+        self.txt_buscar.setPlaceholderText("🔍 Buscar por cédula o nombre...")
+        self.txt_buscar.setFixedSize(240, 36)
         self.txt_buscar.setStyleSheet("""
             QLineEdit {
                 background-color: #f4f6f9;
@@ -169,6 +214,7 @@ class VentanaTrabajadores(QWidget):
             }
             QLineEdit:focus { border: 2px solid #0833a2; }
         """)
+        self.txt_buscar.textChanged.connect(lambda: self.cargar_trabajadores_desde_bd())
         controles_layout.addWidget(self.txt_buscar)
 
         layout_panel.addLayout(controles_layout)
@@ -195,7 +241,7 @@ class VentanaTrabajadores(QWidget):
         # =================================================================
         self.panel_detalles = QFrame()
         self.panel_detalles.setObjectName("panelDetalles")
-        self.panel_detalles.setFixedWidth(300)
+        self.panel_detalles.setFixedWidth(310)
         self.panel_detalles.setStyleSheet("""
             QFrame#panelDetalles {
                 background-color: #ffffff;
@@ -285,42 +331,63 @@ class VentanaTrabajadores(QWidget):
         layout_principal.addWidget(self.panel_detalles)
         self.panel_detalles.hide()
 
-        # Cargar datos reales desde la base de datos MySQL
+        # Cargar datos iniciales
+        self.actualizar_metricas_globales()
         self.cargar_trabajadores_desde_bd()
 
-    def crear_tarjeta_metrica(self, titulo, valor, color_borde):
-        card = QFrame()
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: #ffffff;
-                border-radius: 15px;
-                border-left: 6px solid {color_borde};
-                border-top: none;
-                border-right: none;
-                border-bottom: none;
-            }}
-        """)
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(15, 12, 15, 12)
-        
-        lbl_tit = QLabel(titulo)
-        lbl_tit.setStyleSheet("font-size: 12px; font-weight: bold; color: #777777; border: none; background: transparent;")
-        
-        lbl_val = QLabel(valor)
-        lbl_val.setObjectName(f"val_{titulo}")
-        lbl_val.setStyleSheet(f"font-size: 22px; font-weight: bold; color: {color_borde}; border: none; background: transparent;")
-        
-        layout.addWidget(lbl_tit)
-        layout.addWidget(lbl_val)
-        return card
+    def cambiar_filtro_metrica(self, tipo_filtro):
+        """Cambia el filtro activo al hacer clic en una tarjeta superior"""
+        self.filtro_actual = tipo_filtro
+        if tipo_filtro == "foraneos":
+            self.lbl_titulo_lista.setText("Listado de trabajadores - Votantes Foráneos")
+        elif tipo_filtro == "fijo":
+            self.lbl_titulo_lista.setText("Listado de trabajadores - Contrato Fijo")
+        else:
+            self.lbl_titulo_lista.setText("Listado de trabajadores")
+        self.cargar_trabajadores_desde_bd()
+
+    def actualizar_metricas_globales(self):
+        """Calcula los contadores reales para las tarjetas superiores"""
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor(dictionary=True)
+                
+                # Total
+                cursor.execute("SELECT COUNT(*) AS total FROM trabajadores")
+                res_total = cursor.fetchone()
+                self.card_total.lbl_val.setText(str(res_total['total'] if res_total else 0))
+
+                # Fijos
+                cursor.execute("SELECT COUNT(*) AS total FROM trabajadores t JOIN estados_laborales el ON t.id_estado_laboral_fk = el.id_estado_laboral WHERE el.descripcion_estado LIKE '%fijo%'")
+                res_fijo = cursor.fetchone()
+                self.card_fijo.lbl_val.setText(str(res_fijo['total'] if res_fijo else 0))
+
+                # Votantes Foráneos (Municipio diferente a Maturín, ignorando mayúsculas/minúsculas)
+                sql_foraneos = """
+                    SELECT COUNT(*) AS total FROM trabajadores t
+                    JOIN centros_votacion cv ON t.id_centro_votacion_fk = cv.id_centro_votacion
+                    JOIN parroquias p ON cv.id_parroquia_fk = p.id_parroquia
+                    JOIN municipios m ON p.id_municipio_fk = m.id_municipio
+                    WHERE LOWER(m.nombre_municipio) NOT LIKE '%maturín%' AND LOWER(m.nombre_municipio) NOT LIKE '%maturin%'
+                """
+                cursor.execute(sql_foraneos)
+                res_foraneos = cursor.fetchone()
+                self.card_foraneos.lbl_val.setText(str(res_foraneos['total'] if res_foraneos else 0))
+
+                cursor.close()
+        except Exception as e:
+            print(f"Error al actualizar métricas: {e}")
 
     def cargar_trabajadores_desde_bd(self):
-        """Carga los trabajadores directamente desde la base de datos MySQL"""
-        # Limpiar filas anteriores (excepto el stretch final)
+        """Carga los trabajadores aplicando filtros de búsqueda y métricas interactivas"""
         while self.layout_filas.count() > 1:
             item = self.layout_filas.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+
+        texto_busqueda = self.txt_buscar.text().strip()
 
         try:
             db = GestorBD()
@@ -331,16 +398,42 @@ class VentanaTrabajadores(QWidget):
                     SELECT 
                         t.cedula_trabajador AS cedula,
                         CONCAT(t.nombres, ' ', t.apellidos) AS nombre,
-                        COALESCE(d.nombre_departamento, 'General') AS departamento,
-                        COALESCE(el.descripcion_estado, 'Fijo') AS contrato,
+                        t.fecha_nacimiento,
                         t.telefono,
                         t.correo,
-                        t.direccion
+                        t.sexo,
+                        t.direccion,
+                        COALESCE(el.descripcion_estado, 'N/D') AS estado_laboral,
+                        COALESCE(e.nombre_estado, 'N/D') AS estado_cv,
+                        COALESCE(m.nombre_municipio, 'N/D') AS municipio_cv,
+                        COALESCE(cv.nombre_centro, 'N/D') AS centro_cv
                     FROM trabajadores t
-                    LEFT JOIN departamentos d ON t.id_departamento_fk = d.id_departamento
                     LEFT JOIN estados_laborales el ON t.id_estado_laboral_fk = el.id_estado_laboral
+                    LEFT JOIN centros_votacion cv ON t.id_centro_votacion_fk = cv.id_centro_votacion
+                    LEFT JOIN parroquias p ON cv.id_parroquia_fk = p.id_parroquia
+                    LEFT JOIN municipios m ON p.id_municipio_fk = m.id_municipio
+                    LEFT JOIN estados e ON m.id_estado_fk = e.id_estado
+                    WHERE 1=1
                 """
-                cursor.execute(sql)
+                
+                params = []
+
+                # Aplicar filtro de la tarjeta activa
+                if self.filtro_actual == "foraneos":
+                    sql += " AND (LOWER(m.nombre_municipio) NOT LIKE '%maturín%' AND LOWER(m.nombre_municipio) NOT LIKE '%maturin%')"
+                elif self.filtro_actual == "fijo":
+                    sql += " AND LOWER(el.descripcion_estado) LIKE '%fijo%'"
+
+                # Aplicar filtro de búsqueda de texto en tiempo real
+                if texto_busqueda:
+                    sql += """ AND (CAST(t.cedula_trabajador AS CHAR) LIKE %s 
+                                   OR t.nombres LIKE %s 
+                                   OR t.apellidos LIKE %s 
+                                   OR CONCAT(t.nombres, ' ', t.apellidos) LIKE %s)"""
+                    patron = f"%{texto_busqueda}%"
+                    params.extend([patron, patron, patron, patron])
+
+                cursor.execute(sql, tuple(params))
                 trabajadores = cursor.fetchall()
                 cursor.close()
 
@@ -349,13 +442,11 @@ class VentanaTrabajadores(QWidget):
                     fila.cliqueado.connect(self.mostrar_detalles_trabajador)
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
 
-                # Actualizar contador de métricas
-                total = len(trabajadores)
-                val_total = self.card_total.findChild(QLabel, "val_Total Trabajadores")
-                if val_total:
-                    val_total.setText(str(total))
+                # Actualizamos los números de las tarjetas superiores
+                self.actualizar_metricas_globales()
+
         except Exception as e:
-            print(f"Error al conectar con la base de datos para listar trabajadores: {e}")
+            print(f"Error al listar trabajadores desde la BD: {e}")
 
     def mostrar_detalles_trabajador(self, datos):
         self.trabajador_seleccionado = datos
@@ -365,13 +456,17 @@ class VentanaTrabajadores(QWidget):
         self.lbl_avatar.setText(inicial)
         self.lbl_nombre_detalle.setText(nombre)
 
+        secuencia_cv = f"{datos.get('estado_cv', 'N/D')} - {datos.get('municipio_cv', 'N/D')} - {datos.get('centro_cv', 'N/D')}"
+
         texto = f"""
         <b>Cédula:</b> {datos['cedula']}<br><br>
-        <b>Departamento:</b> {datos['departamento']}<br><br>
-        <b>Tipo Contrato:</b> {datos['contrato']}<br><br>
-        <b>Correo:</b> {datos.get('correo', 'N/D')}<br><br>
+        <b>Fecha de Nacimiento:</b> {datos.get('fecha_nacimiento', 'N/D')}<br><br>
         <b>Teléfono:</b> {datos.get('telefono', 'N/D')}<br><br>
-        <b>Dirección:</b> {datos.get('direccion', 'N/D')}
+        <b>Correo:</b> {datos.get('correo', 'N/D')}<br><br>
+        <b>Sexo:</b> {datos.get('sexo', 'N/D')}<br><br>
+        <b>Dirección:</b> {datos.get('direccion', 'N/D')}<br><br>
+        <b>Estado Laboral:</b> {datos.get('estado_laboral', 'N/D')}<br><br>
+        <b>Centro de Votación:</b><br>{secuencia_cv}
         """
         self.lbl_detalles_contenido.setText(texto)
         self.panel_detalles.show()
@@ -381,13 +476,11 @@ class VentanaTrabajadores(QWidget):
         self.panel_detalles.hide()
 
     def abrir_dialogo_agregar(self):
-        """Abre la ventana modal de registro y actualiza la lista si se guarda"""
         dialogo = RegistroTrabajadores("Registrar Nuevo Trabajador", parent=self)
         if dialogo.exec() == QDialog.DialogCode.Accepted:
             self.cargar_trabajadores_desde_bd()
 
     def abrir_dialogo_modificar(self):
-        """Abre la ventana modal para modificar al trabajador seleccionado"""
         if not self.trabajador_seleccionado:
             return
         dialogo = RegistroTrabajadores("Modificar Trabajador", datos=self.trabajador_seleccionado, parent=self)
@@ -398,6 +491,6 @@ class VentanaTrabajadores(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = VentanaTrabajadores()
-    ventana.resize(1050, 650)
+    ventana.resize(1100, 650)
     ventana.show()
     sys.exit(app.exec())
