@@ -222,7 +222,7 @@ class RegistroTrabajadores(QDialog):
         form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
 
         self.txt_cedula = QLineEdit()
-        self.txt_cedula.setPlaceholderText("Ej. 32270636")
+        self.txt_cedula.setPlaceholderText("Ej. 12345678")
 
         self.txt_nombres = QLineEdit()
         self.txt_nombres.setPlaceholderText("Nombres completos")
@@ -247,13 +247,13 @@ class RegistroTrabajadores(QDialog):
         """)
 
         self.txt_telefono = QLineEdit()
-        self.txt_telefono.setPlaceholderText("Ej. 04128335530")
+        self.txt_telefono.setPlaceholderText("Ej. 0412-1234567")
 
         self.txt_correo = QLineEdit()
         self.txt_correo.setPlaceholderText("correo@inces.gob.ve")
 
         self.cmb_sexo = QComboBox()
-        self.cmb_sexo.addItems(["Masculino", "Femenino", "Otro"])
+        self.cmb_sexo.addItems(["Masculino", "Femenino"])
 
         self.txt_direccion = QLineEdit()
         self.txt_direccion.setPlaceholderText("Dirección de habitación")

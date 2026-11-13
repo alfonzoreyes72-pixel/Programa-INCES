@@ -197,14 +197,21 @@ class VentanaLogin(QMainWindow):
             conexion = db.obtener_conexion()
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
-                sql = "SELECT * FROM usuarios WHERE nombre_usuario = %s AND contraseña = %s"
+                # Consulta uniendo con roles para obtener el nombre del rol
+                sql = """
+                    SELECT u.*, r.nombre_rol 
+                    FROM usuarios u 
+                    JOIN roles r ON u.id_rol_fk = r.id_rol 
+                    WHERE u.nombre_usuario = %s AND u.contraseña = %s
+                """
                 cursor.execute(sql, (usuario, contrasena))
                 resultado = cursor.fetchone()
                 cursor.close()
 
                 if resultado:
                     from ventana_principal import VentanaPrincipal
-                    self.ventana_principal = VentanaPrincipal(ventana_login=self)
+                    rol_usuario = resultado.get('nombre_rol', 'Administrador')
+                    self.ventana_principal = VentanaPrincipal(rol=rol_usuario, ventana_login=self)
                     self.ventana_principal.showMaximized() 
                     self.hide() 
                 else:

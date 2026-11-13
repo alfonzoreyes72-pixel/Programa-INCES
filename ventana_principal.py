@@ -15,11 +15,12 @@ from operativas.ventana_operativas import VentanaOperativas
 from reportes.ventana_reportes import VentanaReportes
 
 class VentanaPrincipal(QMainWindow):
-    def __init__(self, ventana_login=None):
+    def __init__(self, rol="Administrador", ventana_login=None):
         super().__init__()
         self.ventana_login = ventana_login  # Guardamos la referencia del login oculto
         self.cerrando_sesion = False        # Bandera para saber si se cerró sesión o se usó la "X"
         self.menu_expandido = True          # Estado inicial del menú lateral
+        self.rol_usuario = rol              # Rol recibido desde el login
         
         self.setWindowTitle("Sistema - Ventana Completa")
         
@@ -93,12 +94,12 @@ class VentanaPrincipal(QMainWindow):
                 border-radius: 18px;
             }
             QPushButton:checked {
-                background-color: #235299;  /* Color fijo cuando está seleccionado */
+                background-color: #235299;
                 border-radius: 18px;
             }
         """
 
-        # Creación individual de los botones del menú lateral con PyQt6
+        # Creación individual de los botones del menú lateral
         self.btn_inicio = QPushButton("  Inicio")
         self.btn_inicio.setStyleSheet(estilo_boton)
         self.btn_inicio.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-inicio.svg')))
@@ -155,6 +156,20 @@ class VentanaPrincipal(QMainWindow):
         self.btn_reportes.setCheckable(True)
         sidebar_layout.addWidget(self.btn_reportes)
         self.btn_reportes.clicked.connect(lambda: self.cambiar_pagina(7, self.btn_reportes))
+
+        # ==================== APLICAR RESTRICCIONES SEGÚN ROL ====================
+        rol_lower = str(self.rol_usuario).lower()
+        if "secretario" in rol_lower:
+            # El secretario NO tiene usuarios, trabajadores ni centros de votación
+            self.btn_usuarios.setVisible(False)
+            self.btn_trabajadores.setVisible(False)
+            self.btn_votacion.setVisible(False)
+            self.btn_operativas.setVisible(False)
+        elif "recursos" in rol_lower:
+            # RRHH NO tiene usuarios ni asistencias
+            self.btn_usuarios.setVisible(False)
+            self.btn_asistencias.setVisible(False)
+        # El Administrador mantiene la visibilidad completa de todos los botones
         
         # Espaciador flexible para empujar el botón de salida hacia el fondo
         sidebar_layout.addStretch()
@@ -221,10 +236,10 @@ class VentanaPrincipal(QMainWindow):
             
             self.btn_inicio.setText("")
             self.btn_perfil.setText("")
-            self.btn_usuarios.setText("")
-            self.btn_trabajadores.setText("")
-            self.btn_votacion.setText("")
-            self.btn_asistencias.setText("")
+            if self.btn_usuarios.isVisible(): self.btn_usuarios.setText("")
+            if self.btn_trabajadores.isVisible(): self.btn_trabajadores.setText("")
+            if self.btn_votacion.isVisible(): self.btn_votacion.setText("")
+            if self.btn_asistencias.isVisible(): self.btn_asistencias.setText("")
             self.btn_operativas.setText("")
             self.btn_reportes.setText("")
             self.btn_cerrar.setText("")
@@ -235,10 +250,10 @@ class VentanaPrincipal(QMainWindow):
             
             self.btn_inicio.setText("  Inicio")
             self.btn_perfil.setText("  Perfil")
-            self.btn_usuarios.setText("  Usuarios")
-            self.btn_trabajadores.setText("  Trabajadores")
-            self.btn_votacion.setText("  Centros de Votación")
-            self.btn_asistencias.setText("  Asistencias")
+            if self.btn_usuarios.isVisible(): self.btn_usuarios.setText("  Usuarios")
+            if self.btn_trabajadores.isVisible(): self.btn_trabajadores.setText("  Trabajadores")
+            if self.btn_votacion.isVisible(): self.btn_votacion.setText("  Centros de Votación")
+            if self.btn_asistencias.isVisible(): self.btn_asistencias.setText("  Asistencias")
             self.btn_operativas.setText("  Novedades Operativas")
             self.btn_reportes.setText("  Reportes")
             self.btn_cerrar.setText("  Cerrar sesión")
@@ -249,6 +264,17 @@ class VentanaPrincipal(QMainWindow):
         self.close()
 
     def cambiar_pagina(self, indice, boton_activo):
+        # Blindaje de seguridad a nivel de código según el rol
+        rol_lower = str(self.rol_usuario).lower()
+        if indice == 2 and "administrador" not in rol_lower:  # Usuarios
+            return
+        if indice == 3 and not ("administrador" in rol_lower or "recursos" in rol_lower):  # Trabajadores
+            return
+        if indice == 4 and not ("administrador" in rol_lower or "recursos" in rol_lower):  # Centros de Votación
+            return
+        if indice == 5 and not ("administrador" in rol_lower or "secretario" in rol_lower):  # Asistencias
+            return
+
         self.stacked_widget.setCurrentIndex(indice)
         botones = [
             self.btn_inicio, 
