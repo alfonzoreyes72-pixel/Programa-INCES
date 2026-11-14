@@ -206,6 +206,21 @@ class VentanaLogin(QMainWindow):
                 """
                 cursor.execute(sql, (usuario, contrasena))
                 resultado = cursor.fetchone()
+
+                # Registrar la fecha y hora del último acceso del usuario
+                if resultado:
+                    try:
+                        cursor.execute("SHOW COLUMNS FROM usuarios LIKE 'ultimo_acceso'")
+                        if not cursor.fetchone():
+                            cursor.execute("ALTER TABLE usuarios ADD COLUMN ultimo_acceso DATETIME NULL")
+                        cursor.execute(
+                            "UPDATE usuarios SET ultimo_acceso = NOW() WHERE id_usuario = %s",
+                            (resultado['id_usuario'],)
+                        )
+                        conexion.commit()
+                    except Exception as e_acceso:
+                        print(f"Error al registrar el último acceso: {e_acceso}")
+
                 cursor.close()
 
                 if resultado:

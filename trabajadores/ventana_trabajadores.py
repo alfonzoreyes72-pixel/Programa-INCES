@@ -103,22 +103,18 @@ class VentanaTrabajadores(QWidget):
         super().__init__(parent)
 
         self.trabajador_seleccionado = None
-        self.filtro_actual = "todos"  # Filtro activo: "todos", "fijo" o "foraneos"
+        self.filtro_actual = "todos"
 
-        # Layout principal horizontal
         layout_principal = QHBoxLayout(self)
         layout_principal.setContentsMargins(20, 20, 20, 20)
         layout_principal.setSpacing(20)
 
-        # Contenedor izquierdo (Tarjetas superiores + Listado)
         self.contenedor_izq = QWidget()
         layout_izq = QVBoxLayout(self.contenedor_izq)
         layout_izq.setContentsMargins(0, 0, 0, 0)
         layout_izq.setSpacing(15)
 
-        # =================================================================
-        # 1. TRES TARJETAS DE WIDGETS SUPERIORES (degradado azul oscuro -> claro)
-        # =================================================================
+        # 1. Tarjetas Superiores
         layout_tarjetas = QHBoxLayout()
         layout_tarjetas.setSpacing(15)
 
@@ -136,9 +132,7 @@ class VentanaTrabajadores(QWidget):
         layout_tarjetas.addWidget(self.card_foraneos)
         layout_izq.addLayout(layout_tarjetas)
 
-        # =================================================================
-        # 2. PANEL PRINCIPAL DEL LISTADO
-        # =================================================================
+        # 2. Panel del Listado
         self.panel_listado = QFrame()
         self.panel_listado.setObjectName("panelListado")
         self.panel_listado.setStyleSheet("""
@@ -236,9 +230,7 @@ class VentanaTrabajadores(QWidget):
         layout_izq.addWidget(self.panel_listado)
         layout_principal.addWidget(self.contenedor_izq, stretch=3)
 
-        # =================================================================
-        # 3. TARJETA BLANCA LATERAL DE DETALLES
-        # =================================================================
+        # 3. Tarjeta Lateral de Detalle
         self.panel_detalles = QFrame()
         self.panel_detalles.setObjectName("panelDetalles")
         self.panel_detalles.setFixedWidth(310)
@@ -331,12 +323,10 @@ class VentanaTrabajadores(QWidget):
         layout_principal.addWidget(self.panel_detalles)
         self.panel_detalles.hide()
 
-        # Cargar datos iniciales
         self.actualizar_metricas_globales()
         self.cargar_trabajadores_desde_bd()
 
     def cambiar_filtro_metrica(self, tipo_filtro):
-        """Cambia el filtro activo al hacer clic en una tarjeta superior"""
         self.filtro_actual = tipo_filtro
         if tipo_filtro == "foraneos":
             self.lbl_titulo_lista.setText("Listado de trabajadores - Votantes Foráneos")
@@ -347,24 +337,20 @@ class VentanaTrabajadores(QWidget):
         self.cargar_trabajadores_desde_bd()
 
     def actualizar_metricas_globales(self):
-        """Calcula los contadores reales para las tarjetas superiores"""
         try:
             db = GestorBD()
             conexion = db.obtener_conexion()
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
                 
-                # Total
                 cursor.execute("SELECT COUNT(*) AS total FROM trabajadores")
                 res_total = cursor.fetchone()
                 self.card_total.lbl_val.setText(str(res_total['total'] if res_total else 0))
 
-                # Fijos
                 cursor.execute("SELECT COUNT(*) AS total FROM trabajadores t JOIN estados_laborales el ON t.id_estado_laboral_fk = el.id_estado_laboral WHERE el.descripcion_estado LIKE '%fijo%'")
                 res_fijo = cursor.fetchone()
                 self.card_fijo.lbl_val.setText(str(res_fijo['total'] if res_fijo else 0))
 
-                # Votantes Foráneos (Municipio diferente a Maturín, ignorando mayúsculas/minúsculas)
                 sql_foraneos = """
                     SELECT COUNT(*) AS total FROM trabajadores t
                     JOIN centros_votacion cv ON t.id_centro_votacion_fk = cv.id_centro_votacion
@@ -381,7 +367,6 @@ class VentanaTrabajadores(QWidget):
             print(f"Error al actualizar métricas: {e}")
 
     def cargar_trabajadores_desde_bd(self):
-        """Carga los trabajadores aplicando filtros de búsqueda y métricas interactivas"""
         while self.layout_filas.count() > 1:
             item = self.layout_filas.takeAt(0)
             if item.widget():
@@ -394,6 +379,16 @@ class VentanaTrabajadores(QWidget):
             conexion = db.obtener_conexion()
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
+                
+                # Asegurar que la tabla departamentos exista por seguridad
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS departamentos (
+                        id_departamento INT AUTO_INCREMENT PRIMARY KEY,
+                        nombre_departamento VARCHAR(100) NOT NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+                """)
+                conexion.commit()
+
                 sql = """
                     SELECT 
                         t.cedula_trabajador AS cedula,
@@ -404,11 +399,13 @@ class VentanaTrabajadores(QWidget):
                         t.sexo,
                         t.direccion,
                         COALESCE(el.descripcion_estado, 'N/D') AS estado_laboral,
+                        COALESCE(d.nombre_departamento, 'N/D') AS departamento,
                         COALESCE(e.nombre_estado, 'N/D') AS estado_cv,
                         COALESCE(m.nombre_municipio, 'N/D') AS municipio_cv,
                         COALESCE(cv.nombre_centro, 'N/D') AS centro_cv
                     FROM trabajadores t
                     LEFT JOIN estados_laborales el ON t.id_estado_laboral_fk = el.id_estado_laboral
+                    LEFT JOIN departamentos d ON t.id_departamento_fk = d.id_departamento
                     LEFT JOIN centros_votacion cv ON t.id_centro_votacion_fk = cv.id_centro_votacion
                     LEFT JOIN parroquias p ON cv.id_parroquia_fk = p.id_parroquia
                     LEFT JOIN municipios m ON p.id_municipio_fk = m.id_municipio
@@ -418,13 +415,11 @@ class VentanaTrabajadores(QWidget):
                 
                 params = []
 
-                # Aplicar filtro de la tarjeta activa
                 if self.filtro_actual == "foraneos":
                     sql += " AND (LOWER(m.nombre_municipio) NOT LIKE '%maturín%' AND LOWER(m.nombre_municipio) NOT LIKE '%maturin%')"
                 elif self.filtro_actual == "fijo":
                     sql += " AND LOWER(el.descripcion_estado) LIKE '%fijo%'"
 
-                # Aplicar filtro de búsqueda de texto en tiempo real
                 if texto_busqueda:
                     sql += """ AND (CAST(t.cedula_trabajador AS CHAR) LIKE %s 
                                    OR t.nombres LIKE %s 
@@ -442,7 +437,6 @@ class VentanaTrabajadores(QWidget):
                     fila.cliqueado.connect(self.mostrar_detalles_trabajador)
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
 
-                # Actualizamos los números de las tarjetas superiores
                 self.actualizar_metricas_globales()
 
         except Exception as e:
@@ -465,6 +459,7 @@ class VentanaTrabajadores(QWidget):
         <b>Correo:</b> {datos.get('correo', 'N/D')}<br><br>
         <b>Sexo:</b> {datos.get('sexo', 'N/D')}<br><br>
         <b>Dirección:</b> {datos.get('direccion', 'N/D')}<br><br>
+        <b>Departamento:</b> {datos.get('departamento', 'N/D')}<br><br>
         <b>Estado Laboral:</b> {datos.get('estado_laboral', 'N/D')}<br><br>
         <b>Centro de Votación:</b><br>{secuencia_cv}
         """

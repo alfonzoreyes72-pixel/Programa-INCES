@@ -21,7 +21,7 @@ except ImportError:
 
 def paleta_clara():
     p = QPalette()
-    p.setColor(QPalette.ColorRole.Window, QColor("#f4f6f9"))
+    p.setColor(QPalette.ColorRole.Window, QColor("#bfbdbe"))
     p.setColor(QPalette.ColorRole.WindowText, QColor("#333333"))
     p.setColor(QPalette.ColorRole.Base, QColor("#ffffff"))
     p.setColor(QPalette.ColorRole.AlternateBase, QColor("#f4f6f9"))
@@ -183,12 +183,84 @@ ESTILO_SCROLL = """
 """
 
 
+class DialogoRegistrarDepartamento(QDialog):
+    """Ventana modal para registrar un nuevo departamento"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Registrar Nuevo Departamento")
+        self.setFixedSize(380, 220)
+        self.setPalette(paleta_clara())
+        self.setStyleSheet(ESTILO_VENTANA.replace("__FLECHA__", crear_icono_flecha()))
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        lbl = QLabel("Registrar Nuevo Departamento")
+        lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #2c2c2c; background: transparent;")
+        layout.addWidget(lbl)
+
+        card = QFrame()
+        card.setStyleSheet("background-color: #ffffff; border-radius: 12px;")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(15, 15, 15, 15)
+        card_layout.setSpacing(10)
+
+        self.txt_nombre_depto = QLineEdit()
+        self.txt_nombre_depto.setPlaceholderText("Nombre del nuevo departamento")
+        card_layout.addWidget(self.txt_nombre_depto)
+        layout.addWidget(card)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+
+        btn_cancelar = QPushButton("Cancelar")
+        btn_cancelar.setFixedSize(90, 32)
+        btn_cancelar.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_cancelar.setStyleSheet("QPushButton { background-color: #e0dede; color: #333333; border-radius: 16px; font-weight: bold; border: none; } QPushButton:hover { background-color: #d0d0d0; }")
+        btn_cancelar.clicked.connect(self.reject)
+        btn_layout.addWidget(btn_cancelar)
+
+        btn_guardar = QPushButton("Guardar")
+        btn_guardar.setFixedSize(90, 32)
+        btn_guardar.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_guardar.setStyleSheet("QPushButton { background-color: #163e7a; color: white; border-radius: 16px; font-weight: bold; border: none; } QPushButton:hover { background-color: #235299; }")
+        btn_guardar.clicked.connect(self.guardar_departamento)
+        btn_layout.addWidget(btn_guardar)
+
+        layout.addLayout(btn_layout)
+
+    def guardar_departamento(self):
+        nombre = self.txt_nombre_depto.text().strip()
+        if not nombre:
+            QMessageBox.warning(self, "Campo vacío", "Por favor, ingrese el nombre del departamento.")
+            return
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS departamentos (
+                        id_departamento INT AUTO_INCREMENT PRIMARY KEY,
+                        nombre_departamento VARCHAR(100) NOT NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+                """)
+                cursor.execute("INSERT INTO departamentos (nombre_departamento) VALUES (%s)", (nombre,))
+                conexion.commit()
+                cursor.close()
+                QMessageBox.information(self, "Éxito", "Departamento registrado correctamente.")
+                self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo registrar el departamento:\n{e}")
+
+
 class RegistroTrabajadores(QDialog):
-    """Ventana modal para el registro y modificación de trabajadores con selectores en cascada corregidos"""
+    """Ventana modal para el registro y modificación de trabajadores"""
     def __init__(self, titulo="Registrar Trabajador", datos=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(titulo)
-        self.setFixedSize(520, 640)
+        self.setFixedSize(520, 670)
         self.setPalette(paleta_clara())
         self.setStyleSheet(ESTILO_VENTANA.replace("__FLECHA__", crear_icono_flecha()))
 
@@ -258,7 +330,21 @@ class RegistroTrabajadores(QDialog):
         self.txt_direccion = QLineEdit()
         self.txt_direccion.setPlaceholderText("Dirección de habitación")
 
+        # Selector de Departamento con enlace corto debajo
         self.cmb_departamento = QComboBox()
+        self.lbl_link_depto = QLabel('<a href="#" style="color: #163e7a; text-decoration: none;">¿No encuentras el departamento? Pulsa aquí</a>')
+        self.lbl_link_depto.setOpenExternalLinks(False)
+        self.lbl_link_depto.linkActivated.connect(self.abrir_registro_departamento)
+        self.lbl_link_depto.setStyleSheet("font-size: 11px; font-weight: normal; color: #163e7a; background: transparent;")
+
+        contenedor_depto = QWidget()
+        contenedor_depto.setStyleSheet("background: transparent;")
+        d_layout = QVBoxLayout(contenedor_depto)
+        d_layout.setContentsMargins(0, 0, 0, 0)
+        d_layout.setSpacing(4)
+        d_layout.addWidget(self.cmb_departamento)
+        d_layout.addWidget(self.lbl_link_depto)
+
         self.cmb_estado_laboral = QComboBox()
 
         # Selectores en cascada para la ubicación del centro de votación
@@ -286,7 +372,7 @@ class RegistroTrabajadores(QDialog):
         form_layout.addRow("Correo:", self.txt_correo)
         form_layout.addRow("Sexo:", self.cmb_sexo)
         form_layout.addRow("Dirección:", self.txt_direccion)
-        form_layout.addRow("Departamento:", self.cmb_departamento)
+        form_layout.addRow("Departamento:", contenedor_depto)
         form_layout.addRow("Estado Laboral:", self.cmb_estado_laboral)
         form_layout.addRow("Estado (Votación):", self.cmb_estado_cv)
         form_layout.addRow("Municipio (Votación):", self.cmb_municipio_cv)
@@ -333,18 +419,43 @@ class RegistroTrabajadores(QDialog):
             self.txt_correo.setText(datos.get("correo", ""))
             self.txt_direccion.setText(datos.get("direccion", ""))
 
-    def cargar_datos_maestros(self):
-        """Carga departamentos, estados laborales y estados geográficos desde la BD"""
+    def abrir_registro_departamento(self):
+        """Abre la ventana modal para registrar un nuevo departamento y actualiza el ComboBox"""
+        dialogo = DialogoRegistrarDepartamento(self)
+        if dialogo.exec() == QDialog.DialogCode.Accepted:
+            self.cargar_departamentos()
+
+    def cargar_departamentos(self):
+        """Carga los departamentos desde la base de datos"""
+        self.cmb_departamento.clear()
         try:
             db = GestorBD()
             conexion = db.obtener_conexion()
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS departamentos (
+                        id_departamento INT AUTO_INCREMENT PRIMARY KEY,
+                        nombre_departamento VARCHAR(100) NOT NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+                """)
+                conexion.commit()
 
-                # Departamentos
                 cursor.execute("SELECT id_departamento, nombre_departamento FROM departamentos")
                 for d in cursor.fetchall():
                     self.cmb_departamento.addItem(d["nombre_departamento"], d["id_departamento"])
+                cursor.close()
+        except Exception as e:
+            print(f"Error al cargar departamentos: {e}")
+
+    def cargar_datos_maestros(self):
+        """Carga departamentos, estados laborales y estados geográficos desde la BD"""
+        self.cargar_departamentos()
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor(dictionary=True)
 
                 # Estados Laborales
                 cursor.execute("SELECT id_estado_laboral, descripcion_estado FROM estados_laborales")
@@ -359,16 +470,13 @@ class RegistroTrabajadores(QDialog):
 
                 cursor.close()
 
-                # Disparar manualmente la carga de municipios para el primer estado si existe
                 if estados:
                     self.cargar_municipios()
         except Exception as e:
             print(f"Error al cargar datos maestros: {e}")
 
     def cargar_municipios(self):
-        """Carga los municipios correspondientes al estado seleccionado"""
         self.cmb_municipio_cv.clear()
-        
         id_estado = self.cmb_estado_cv.currentData()
         if id_estado is None:
             return
@@ -384,7 +492,6 @@ class RegistroTrabajadores(QDialog):
                     self.cmb_municipio_cv.addItem(mun["nombre_municipio"], mun["id_municipio"])
                 cursor.close()
 
-                # Disparar la carga de centros de votación para el primer municipio
                 if municipios:
                     self.cargar_centros_votacion()
                 else:
@@ -393,9 +500,7 @@ class RegistroTrabajadores(QDialog):
             print(f"Error al cargar municipios: {e}")
 
     def cargar_centros_votacion(self):
-        """Carga los centros vinculados a las parroquias del municipio seleccionado"""
         self.cmb_centro_votacion.clear()
-
         id_municipio = self.cmb_municipio_cv.currentData()
         if id_municipio is None:
             return
@@ -405,7 +510,6 @@ class RegistroTrabajadores(QDialog):
             conexion = db.obtener_conexion()
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
-                # Consulta ajustada a la nueva estructura: centros_votacion -> parroquias -> municipios
                 sql = """
                     SELECT DISTINCT c.id_centro_votacion, c.nombre_centro 
                     FROM centros_votacion c

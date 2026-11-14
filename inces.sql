@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 12-11-2026 a las 05:03:13
+-- Tiempo de generación: 14-11-2026 a las 17:42:32
 -- Versión del servidor: 10.11.16-MariaDB
 -- Versión de PHP: 8.3.36
 
@@ -72,7 +72,8 @@ CREATE TABLE `departamentos` (
 --
 
 INSERT INTO `departamentos` (`id_departamento`, `nombre_departamento`, `ubicacion_fisica`) VALUES
-(3, 'Recursos Humanos', 'al lado de la biblioteca ');
+(3, 'Recursos Humanos', 'al lado de la biblioteca '),
+(4, 'Tutor de Formaciones', '');
 
 -- --------------------------------------------------------
 
@@ -220,7 +221,9 @@ CREATE TABLE `trabajadores` (
 --
 
 INSERT INTO `trabajadores` (`cedula_trabajador`, `nombres`, `apellidos`, `fecha_nacimiento`, `telefono`, `correo`, `sexo`, `direccion`, `id_departamento_fk`, `id_estado_laboral_fk`, `id_centro_votacion_fk`) VALUES
-(32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'masculino', 'Invasión de la Puente, Calle 10', 3, 2, 2);
+(31776780, 'Ángel', 'Malavé', '2006-11-18', '0412-1234567', 'angel@gmail.com', 'Masculino', 'las Cocuizas', 4, 2, 2),
+(32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'masculino', 'Invasión de la Puente, Calle 10', 3, 2, 2),
+(32753323, 'Jesús', 'López', '2006-11-18', '0412-1234567', 'jesus@gmail.com', 'Masculino', 'El Elevado de Maturín', 3, 2, 2);
 
 -- --------------------------------------------------------
 
@@ -233,15 +236,18 @@ CREATE TABLE `usuarios` (
   `nombre_usuario` varchar(20) NOT NULL,
   `contraseña` varchar(60) NOT NULL,
   `cedula_trabajador_fk` int(11) NOT NULL,
-  `id_rol_fk` int(11) NOT NULL
+  `id_rol_fk` int(11) NOT NULL,
+  `ultimo_acceso` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `usuarios`
 --
 
-INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contraseña`, `cedula_trabajador_fk`, `id_rol_fk`) VALUES
-(1, 'Rolando', '1234', 32270636, 1);
+INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contraseña`, `cedula_trabajador_fk`, `id_rol_fk`, `ultimo_acceso`) VALUES
+(1, 'Rolando', '1234', 32270636, 1, '2026-11-14 12:23:02'),
+(2, 'Jesus', '1234', 32753323, 2, '2026-11-14 12:22:27'),
+(3, 'Angel', '1234', 31776780, 3, '2026-11-14 12:22:48');
 
 --
 -- Índices para tablas volcadas
@@ -350,7 +356,7 @@ ALTER TABLE `centros_votacion`
 -- AUTO_INCREMENT de la tabla `departamentos`
 --
 ALTER TABLE `departamentos`
-  MODIFY `id_departamento` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id_departamento` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `estados`
@@ -398,7 +404,7 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT de la tabla `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- Restricciones para tablas volcadas
