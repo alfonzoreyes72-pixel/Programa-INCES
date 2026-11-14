@@ -14,10 +14,23 @@ except ImportError:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     from database import GestorBD
 
+# Importación de la ventana modal de privilegios
+try:
+    from .ventana_privilegios import VentanaPrivilegios
+except ImportError:
+    from ventana_privilegios import VentanaPrivilegios
+
+# Importación de la ventana modal de cambio de rol
+try:
+    from .cambio_rol import VentanaCambioRol
+except ImportError:
+    from cambio_rol import VentanaCambioRol
+
 
 class FilaUsuario(QFrame):
     """Componente interactivo para cada fila de usuario con diseño en contenedor gris"""
     cliqueado = pyqtSignal(dict)
+    rol_actualizado = pyqtSignal()
 
     def __init__(self, datos_usuario, parent=None):
         super().__init__(parent)
@@ -134,20 +147,23 @@ class FilaUsuario(QFrame):
             }
         """
 
+        # (texto, estilo, función a ejecutar); None = funcionalidad pendiente
         opciones = [
-            ("Asignar privilegios", estilo_normal),
-            ("Cambiar rol", estilo_normal),
-            ("Actualizar credenciales", estilo_normal),
-            ("Bloquear acceso", estilo_normal),
-            ("Eliminar usuario", estilo_peligro),
+            ("Asignar privilegios", estilo_normal, self.abrir_privilegios),
+            ("Cambiar rol", estilo_normal, self.abrir_cambio_rol),
+            ("Actualizar credenciales", estilo_normal, None),
+            ("Bloquear acceso", estilo_normal, None),
+            ("Eliminar usuario", estilo_peligro, None),
         ]
 
-        for texto, estilo in opciones:
+        elegida = []
+        for texto, estilo, funcion in opciones:
             boton = QPushButton(texto)
             boton.setCursor(Qt.CursorShape.PointingHandCursor)
             boton.setMinimumWidth(200)
             boton.setStyleSheet(estilo)
-            boton.clicked.connect(menu.close)  # Funcionalidad pendiente
+            boton.clicked.connect(lambda _=False, f=funcion: elegida.append(f))
+            boton.clicked.connect(menu.close)
             accion = QWidgetAction(menu)
             accion.setDefaultWidget(boton)
             menu.addAction(accion)
@@ -158,6 +174,22 @@ class FilaUsuario(QFrame):
             QPoint(self.btn_puntos.width() - ancho_menu, self.btn_puntos.height() + 4)
         )
         menu.exec(posicion)
+
+        # La acción se ejecuta cuando el menú ya se cerró
+        if elegida and elegida[0]:
+            elegida[0]()
+
+    def abrir_privilegios(self):
+        """Abre la ventana modal para marcar/desmarcar las ventanas a las que accede el usuario"""
+        ventana = VentanaPrivilegios(self.datos, self.window())
+        ventana.exec()
+
+    def abrir_cambio_rol(self):
+        """Abre la ventana modal para elegir el nuevo rol del usuario"""
+        ventana = VentanaCambioRol(self.datos, self.window())
+        if ventana.exec():
+            # Se guardó un cambio: se avisa para refrescar la lista y los contadores
+            self.rol_actualizado.emit()
 
     def mousePressEvent(self, event):
         self.cliqueado.emit(self.datos)
@@ -447,6 +479,7 @@ class VentanaUsuarios(QWidget):
                 
                 sql = """
                     SELECT 
+                        u.id_usuario AS id_usuario,
                         u.nombre_usuario AS usuario,
                         COALESCE(CONCAT(t.nombres, ' ', t.apellidos), 'Sin vincular') AS trabajador_vinculado,
                         COALESCE(t.cedula_trabajador, 'N/D') AS cedula,
@@ -480,6 +513,7 @@ class VentanaUsuarios(QWidget):
 
                 for u in usuarios:
                     fila = FilaUsuario(u)
+                    fila.rol_actualizado.connect(self.cargar_usuarios_desde_bd)
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
 
                 self.actualizar_metricas_roles()

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 14-11-2026 a las 17:42:32
+-- Tiempo de generación: 14-11-2026 a las 18:30:31
 -- Versión del servidor: 10.11.16-MariaDB
 -- Versión de PHP: 8.3.36
 
@@ -179,6 +179,30 @@ INSERT INTO `parroquias` (`id_parroquia`, `nombre_parroquia`, `id_municipio_fk`)
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `privilegios_ventanas`
+--
+
+CREATE TABLE `privilegios_ventanas` (
+  `id_usuario_fk` int(11) NOT NULL,
+  `ventana` varchar(40) NOT NULL,
+  `permitido` tinyint(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `privilegios_ventanas`
+--
+
+INSERT INTO `privilegios_ventanas` (`id_usuario_fk`, `ventana`, `permitido`) VALUES
+(2, 'asistencias', 0),
+(2, 'operativas', 1),
+(2, 'reportes', 1),
+(2, 'trabajadores', 1),
+(2, 'usuarios', 0),
+(2, 'votacion', 1);
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `roles`
 --
 
@@ -223,7 +247,8 @@ CREATE TABLE `trabajadores` (
 INSERT INTO `trabajadores` (`cedula_trabajador`, `nombres`, `apellidos`, `fecha_nacimiento`, `telefono`, `correo`, `sexo`, `direccion`, `id_departamento_fk`, `id_estado_laboral_fk`, `id_centro_votacion_fk`) VALUES
 (31776780, 'Ángel', 'Malavé', '2006-11-18', '0412-1234567', 'angel@gmail.com', 'Masculino', 'las Cocuizas', 4, 2, 2),
 (32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'masculino', 'Invasión de la Puente, Calle 10', 3, 2, 2),
-(32753323, 'Jesús', 'López', '2006-11-18', '0412-1234567', 'jesus@gmail.com', 'Masculino', 'El Elevado de Maturín', 3, 2, 2);
+(32753323, 'Jesús', 'López', '2006-11-18', '0412-1234567', 'jesus@gmail.com', 'Masculino', 'El Elevado de Maturín', 3, 2, 2),
+(338614649, 'YUSLEN ANTONELA', 'FACURE PEREZ', '2006-11-18', '04128614649', '', 'Masculino', '', 3, 2, 2);
 
 -- --------------------------------------------------------
 
@@ -245,9 +270,10 @@ CREATE TABLE `usuarios` (
 --
 
 INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contraseña`, `cedula_trabajador_fk`, `id_rol_fk`, `ultimo_acceso`) VALUES
-(1, 'Rolando', '1234', 32270636, 1, '2026-11-14 12:23:02'),
-(2, 'Jesus', '1234', 32753323, 2, '2026-11-14 12:22:27'),
-(3, 'Angel', '1234', 31776780, 3, '2026-11-14 12:22:48');
+(1, 'Rolando', '1234', 32270636, 1, '2026-11-14 13:29:09'),
+(2, 'Jesus', '1234', 32753323, 2, '2026-11-14 13:09:45'),
+(3, 'Angel', '1234', 31776780, 3, '2026-11-14 13:26:15'),
+(4, 'antonela', '1234', 338614649, 2, '2026-11-14 13:28:57');
 
 --
 -- Índices para tablas volcadas
@@ -312,6 +338,12 @@ ALTER TABLE `novedades_operativas`
 ALTER TABLE `parroquias`
   ADD PRIMARY KEY (`id_parroquia`),
   ADD KEY `id_municipio_fk` (`id_municipio_fk`);
+
+--
+-- Indices de la tabla `privilegios_ventanas`
+--
+ALTER TABLE `privilegios_ventanas`
+  ADD PRIMARY KEY (`id_usuario_fk`,`ventana`);
 
 --
 -- Indices de la tabla `roles`
@@ -404,7 +436,7 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT de la tabla `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- Restricciones para tablas volcadas
@@ -440,6 +472,12 @@ ALTER TABLE `novedades_operativas`
 --
 ALTER TABLE `parroquias`
   ADD CONSTRAINT `parroquias_ibfk_1` FOREIGN KEY (`id_municipio_fk`) REFERENCES `municipios` (`id_municipio`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Filtros para la tabla `privilegios_ventanas`
+--
+ALTER TABLE `privilegios_ventanas`
+  ADD CONSTRAINT `privilegios_ventanas_ibfk_1` FOREIGN KEY (`id_usuario_fk`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `trabajadores`

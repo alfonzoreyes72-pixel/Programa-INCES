@@ -226,7 +226,7 @@ class VentanaLogin(QMainWindow):
                 if resultado:
                     from ventana_principal import VentanaPrincipal
                     rol_usuario = resultado.get('nombre_rol', 'Administrador')
-                    self.ventana_principal = VentanaPrincipal(rol=rol_usuario, ventana_login=self)
+                    self.ventana_principal = VentanaPrincipal(rol=rol_usuario, ventana_login=self, id_usuario=resultado['id_usuario'])
                     self.ventana_principal.showMaximized() 
                     self.hide() 
                 else:

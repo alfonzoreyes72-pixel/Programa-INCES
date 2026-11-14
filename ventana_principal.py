@@ -13,14 +13,16 @@ from asistencias.ventana_asistencias import VentanaAsistencias
 from votacion.ventana_votacion import VentanaVotacion
 from operativas.ventana_operativas import VentanaOperativas
 from reportes.ventana_reportes import VentanaReportes
+from usuarios.ventana_privilegios import obtener_permisos
 
 class VentanaPrincipal(QMainWindow):
-    def __init__(self, rol="Administrador", ventana_login=None):
+    def __init__(self, rol="Administrador", ventana_login=None, id_usuario=None):
         super().__init__()
         self.ventana_login = ventana_login  # Guardamos la referencia del login oculto
         self.cerrando_sesion = False        # Bandera para saber si se cerró sesión o se usó la "X"
         self.menu_expandido = True          # Estado inicial del menú lateral
         self.rol_usuario = rol              # Rol recibido desde el login
+        self.id_usuario = id_usuario        # Id del usuario que inició sesión (para sus privilegios)
         
         self.setWindowTitle("Sistema - Ventana Completa")
         
@@ -157,19 +159,16 @@ class VentanaPrincipal(QMainWindow):
         sidebar_layout.addWidget(self.btn_reportes)
         self.btn_reportes.clicked.connect(lambda: self.cambiar_pagina(7, self.btn_reportes))
 
-        # ==================== APLICAR RESTRICCIONES SEGÚN ROL ====================
-        rol_lower = str(self.rol_usuario).lower()
-        if "secretario" in rol_lower:
-            # El secretario NO tiene usuarios, trabajadores ni centros de votación
-            self.btn_usuarios.setVisible(False)
-            self.btn_trabajadores.setVisible(False)
-            self.btn_votacion.setVisible(False)
-            self.btn_operativas.setVisible(False)
-        elif "recursos" in rol_lower:
-            # RRHH NO tiene usuarios ni asistencias
-            self.btn_usuarios.setVisible(False)
-            self.btn_asistencias.setVisible(False)
-        # El Administrador mantiene la visibilidad completa de todos los botones
+        # ==================== APLICAR PRIVILEGIOS DEL USUARIO ====================
+        # Los accesos se editan desde Usuarios > Asignar privilegios y se guardan en la BD.
+        # Si el usuario no tiene privilegios guardados, se usan los valores por defecto de su rol.
+        self.permisos = obtener_permisos(self.id_usuario, self.rol_usuario)
+        self.btn_usuarios.setVisible(self.permisos["usuarios"])
+        self.btn_trabajadores.setVisible(self.permisos["trabajadores"])
+        self.btn_votacion.setVisible(self.permisos["votacion"])
+        self.btn_asistencias.setVisible(self.permisos["asistencias"])
+        self.btn_operativas.setVisible(self.permisos["operativas"])
+        self.btn_reportes.setVisible(self.permisos["reportes"])
         
         # Espaciador flexible para empujar el botón de salida hacia el fondo
         sidebar_layout.addStretch()
@@ -264,15 +263,13 @@ class VentanaPrincipal(QMainWindow):
         self.close()
 
     def cambiar_pagina(self, indice, boton_activo):
-        # Blindaje de seguridad a nivel de código según el rol
-        rol_lower = str(self.rol_usuario).lower()
-        if indice == 2 and "administrador" not in rol_lower:  # Usuarios
-            return
-        if indice == 3 and not ("administrador" in rol_lower or "recursos" in rol_lower):  # Trabajadores
-            return
-        if indice == 4 and not ("administrador" in rol_lower or "recursos" in rol_lower):  # Centros de Votación
-            return
-        if indice == 5 and not ("administrador" in rol_lower or "secretario" in rol_lower):  # Asistencias
+        # Blindaje de seguridad a nivel de código según los privilegios del usuario
+        claves_por_indice = {
+            2: "usuarios", 3: "trabajadores", 4: "votacion",
+            5: "asistencias", 6: "operativas", 7: "reportes"
+        }
+        clave = claves_por_indice.get(indice)
+        if clave and not self.permisos.get(clave, False):
             return
 
         self.stacked_widget.setCurrentIndex(indice)
