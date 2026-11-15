@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 14-11-2026 a las 18:30:31
+-- Tiempo de generación: 15-11-2026 a las 04:21:38
 -- Versión del servidor: 10.11.16-MariaDB
 -- Versión de PHP: 8.3.36
 
@@ -262,18 +262,18 @@ CREATE TABLE `usuarios` (
   `contraseña` varchar(60) NOT NULL,
   `cedula_trabajador_fk` int(11) NOT NULL,
   `id_rol_fk` int(11) NOT NULL,
-  `ultimo_acceso` datetime DEFAULT NULL
+  `ultimo_acceso` datetime DEFAULT NULL,
+  `bloqueado` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `usuarios`
 --
 
-INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contraseña`, `cedula_trabajador_fk`, `id_rol_fk`, `ultimo_acceso`) VALUES
-(1, 'Rolando', '1234', 32270636, 1, '2026-11-14 13:29:09'),
-(2, 'Jesus', '1234', 32753323, 2, '2026-11-14 13:09:45'),
-(3, 'Angel', '1234', 31776780, 3, '2026-11-14 13:26:15'),
-(4, 'antonela', '1234', 338614649, 2, '2026-11-14 13:28:57');
+INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contraseña`, `cedula_trabajador_fk`, `id_rol_fk`, `ultimo_acceso`, `bloqueado`) VALUES
+(1, 'Rolando', '1234', 32270636, 1, '2026-11-14 23:20:11', 0),
+(2, 'Jesus', '1234', 32753323, 2, '2026-11-14 13:09:45', 0),
+(3, 'Angel', '1234', 31776780, 3, '2026-11-14 13:26:15', 0);
 
 --
 -- Índices para tablas volcadas

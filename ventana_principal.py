@@ -3,7 +3,7 @@ import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
                             QGraphicsDropShadowEffect, QStackedWidget)
 from PyQt6.QtGui import QColor, QPixmap, QIcon
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 from inicio.ventana_inicio import VentanaInicio
 from perfil.ventana_perfil import VentanaPerfil
@@ -14,6 +14,8 @@ from votacion.ventana_votacion import VentanaVotacion
 from operativas.ventana_operativas import VentanaOperativas
 from reportes.ventana_reportes import VentanaReportes
 from usuarios.ventana_privilegios import obtener_permisos
+from usuarios.ventana_acceso import AvisoCuentaInhabilitada, MENSAJE_CUENTA_INHABILITADA
+from database import GestorBD
 
 class VentanaPrincipal(QMainWindow):
     def __init__(self, rol="Administrador", ventana_login=None, id_usuario=None):
@@ -207,7 +209,7 @@ class VentanaPrincipal(QMainWindow):
 
         self.pagina_inicio = VentanaInicio()
         self.pagina_perfil = VentanaPerfil()
-        self.pagina_usuarios = VentanaUsuarios()
+        self.pagina_usuarios = VentanaUsuarios(id_usuario_actual=self.id_usuario)
         self.pagina_trabajadores = VentanaTrabajadores()
         self.pagina_votacion = VentanaVotacion()
         self.pagina_asistencias = VentanaAsistencias()
@@ -225,6 +227,15 @@ class VentanaPrincipal(QMainWindow):
 
         main_layout.addWidget(self.sidebar)
         main_layout.addWidget(self.stacked_widget)
+
+        # ==================== VIGILANCIA DE LA CUENTA ====================
+        # Cada pocos segundos se comprueba que la cuenta siga habilitada; si el administrador
+        # la bloquea, la sesión se cierra automáticamente.
+        self._conexion_vigilancia = None
+        self.timer_cuenta = QTimer(self)
+        self.timer_cuenta.timeout.connect(self.verificar_cuenta)
+        if self.id_usuario is not None:
+            self.timer_cuenta.start(3000)
 
     # ==================== MÉTODOS ====================
     def toggle_sidebar(self):
@@ -258,6 +269,57 @@ class VentanaPrincipal(QMainWindow):
             self.btn_cerrar.setText("  Cerrar sesión")
             self.menu_expandido = True
 
+    def _obtener_conexion_vigilancia(self):
+        """Reutiliza una sola conexión para la vigilancia, para no abrir una nueva cada vez"""
+        try:
+            if self._conexion_vigilancia is None or not self._conexion_vigilancia.is_connected():
+                self._conexion_vigilancia = GestorBD().obtener_conexion()
+        except Exception:
+            self._conexion_vigilancia = None
+        return self._conexion_vigilancia
+
+    def _cerrar_conexion_vigilancia(self):
+        try:
+            if self._conexion_vigilancia is not None:
+                self._conexion_vigilancia.close()
+        except Exception:
+            pass
+        self._conexion_vigilancia = None
+
+    def consultar_estado_cuenta(self):
+        """Devuelve 'habilitada', 'bloqueada', 'eliminada' o None si no se pudo consultar"""
+        try:
+            conexion = self._obtener_conexion_vigilancia()
+            if not conexion:
+                return None
+            cursor = conexion.cursor(dictionary=True)
+            cursor.execute("SELECT bloqueado FROM usuarios WHERE id_usuario = %s", (self.id_usuario,))
+            fila = cursor.fetchone()
+            cursor.close()
+            conexion.commit()  # Cierra la transacción para ver siempre los datos más recientes
+            if fila is None:
+                return "eliminada"
+            return "bloqueada" if fila["bloqueado"] else "habilitada"
+        except Exception:
+            # La consulta falló: se descarta la conexión y se reintenta en el próximo ciclo
+            self._cerrar_conexion_vigilancia()
+            return None
+
+    def verificar_cuenta(self):
+        estado = self.consultar_estado_cuenta()
+        if estado is None or estado == "habilitada":
+            return
+
+        self.timer_cuenta.stop()
+        if estado == "bloqueada":
+            mensaje = MENSAJE_CUENTA_INHABILITADA
+        else:
+            mensaje = "Tu cuenta ya no existe en el sistema."
+
+        aviso = AvisoCuentaInhabilitada(self, "Sesión finalizada", f"{mensaje} Tu sesión se cerrará ahora.")
+        aviso.exec()
+        self.cerrar_sesion()
+
     def cerrar_sesion(self):
         self.cerrando_sesion = True
         self.close()
@@ -290,6 +352,8 @@ class VentanaPrincipal(QMainWindow):
                 btn.setChecked(False)
 
     def closeEvent(self, event):
+        self.timer_cuenta.stop()
+        self._cerrar_conexion_vigilancia()
         if self.cerrando_sesion:
             if self.ventana_login:
                 self.ventana_login.limpiar_formulario()

@@ -1,3 +1,4 @@
+import re
 import sys
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
@@ -26,15 +27,30 @@ try:
 except ImportError:
     from cambio_rol import VentanaCambioRol
 
+# Importación de la ventana modal de eliminación de usuario
+try:
+    from .ventana_eliminacion import VentanaEliminacion
+except ImportError:
+    from ventana_eliminacion import VentanaEliminacion
+
+# Importación de la ventana modal de bloqueo / devolución de acceso
+try:
+    from .ventana_acceso import VentanaAcceso, asegurar_columna_bloqueado
+except ImportError:
+    from ventana_acceso import VentanaAcceso, asegurar_columna_bloqueado
+
 
 class FilaUsuario(QFrame):
     """Componente interactivo para cada fila de usuario con diseño en contenedor gris"""
     cliqueado = pyqtSignal(dict)
     rol_actualizado = pyqtSignal()
+    usuario_eliminado = pyqtSignal()
+    acceso_actualizado = pyqtSignal()
 
-    def __init__(self, datos_usuario, parent=None):
+    def __init__(self, datos_usuario, parent=None, id_usuario_actual=None):
         super().__init__(parent)
         self.datos = datos_usuario
+        self.id_usuario_actual = id_usuario_actual  # Usuario con la sesión iniciada
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(60)
         
@@ -97,6 +113,15 @@ class FilaUsuario(QFrame):
             }
         """)
 
+        # Usuario con el acceso bloqueado: sus datos se ven en gris y tachados
+        if self.datos.get("bloqueado"):
+            for lbl in (self.lbl_usuario, self.lbl_trabajador, self.lbl_cedula, self.lbl_rol, self.lbl_acceso):
+                lbl.setStyleSheet(re.sub(
+                    r"color:\s*#[0-9a-fA-F]+;",
+                    "color: #9e9e9e; text-decoration: line-through;",
+                    lbl.styleSheet()
+                ))
+
         layout.addWidget(self.lbl_usuario)
         layout.addWidget(self.lbl_trabajador, stretch=1)
         layout.addWidget(self.lbl_cedula)
@@ -147,13 +172,16 @@ class FilaUsuario(QFrame):
             }
         """
 
+        # Si el usuario está bloqueado, la opción pasa a devolver el acceso
+        texto_acceso = "Devolver acceso" if self.datos.get("bloqueado") else "Bloquear acceso"
+
         # (texto, estilo, función a ejecutar); None = funcionalidad pendiente
         opciones = [
             ("Asignar privilegios", estilo_normal, self.abrir_privilegios),
             ("Cambiar rol", estilo_normal, self.abrir_cambio_rol),
             ("Actualizar credenciales", estilo_normal, None),
-            ("Bloquear acceso", estilo_normal, None),
-            ("Eliminar usuario", estilo_peligro, None),
+            (texto_acceso, estilo_normal, self.abrir_acceso),
+            ("Eliminar usuario", estilo_peligro, self.abrir_eliminacion),
         ]
 
         elegida = []
@@ -190,6 +218,20 @@ class FilaUsuario(QFrame):
         if ventana.exec():
             # Se guardó un cambio: se avisa para refrescar la lista y los contadores
             self.rol_actualizado.emit()
+
+    def abrir_eliminacion(self):
+        """Abre la ventana modal de confirmación para eliminar al usuario"""
+        ventana = VentanaEliminacion(self.datos, self.window(), self.id_usuario_actual)
+        if ventana.exec():
+            # Se eliminó el usuario: se avisa para refrescar la lista y los contadores
+            self.usuario_eliminado.emit()
+
+    def abrir_acceso(self):
+        """Abre la ventana modal para bloquear el acceso del usuario o devolvérselo"""
+        ventana = VentanaAcceso(self.datos, self.window(), self.id_usuario_actual)
+        if ventana.exec():
+            # Se cambió el estado del acceso: se avisa para refrescar la lista
+            self.acceso_actualizado.emit()
 
     def mousePressEvent(self, event):
         self.cliqueado.emit(self.datos)
@@ -242,9 +284,10 @@ class TarjetaMetricaRol(QFrame):
 
 
 class VentanaUsuarios(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, id_usuario_actual=None):
         super().__init__(parent)
 
+        self.id_usuario_actual = id_usuario_actual  # Usuario con la sesión iniciada
         self.filtro_actual = "todos"
 
         layout_principal = QVBoxLayout(self)
@@ -402,6 +445,7 @@ class VentanaUsuarios(QWidget):
 
         # Cargar métricas y datos iniciales
         self.asegurar_columna_ultimo_acceso()
+        asegurar_columna_bloqueado()
         self.actualizar_metricas_roles()
         self.cargar_usuarios_desde_bd()
 
@@ -480,6 +524,7 @@ class VentanaUsuarios(QWidget):
                 sql = """
                     SELECT 
                         u.id_usuario AS id_usuario,
+                        COALESCE(u.bloqueado, 0) AS bloqueado,
                         u.nombre_usuario AS usuario,
                         COALESCE(CONCAT(t.nombres, ' ', t.apellidos), 'Sin vincular') AS trabajador_vinculado,
                         COALESCE(t.cedula_trabajador, 'N/D') AS cedula,
@@ -512,8 +557,10 @@ class VentanaUsuarios(QWidget):
                 cursor.close()
 
                 for u in usuarios:
-                    fila = FilaUsuario(u)
+                    fila = FilaUsuario(u, id_usuario_actual=self.id_usuario_actual)
                     fila.rol_actualizado.connect(self.cargar_usuarios_desde_bd)
+                    fila.usuario_eliminado.connect(self.cargar_usuarios_desde_bd)
+                    fila.acceso_actualizado.connect(self.cargar_usuarios_desde_bd)
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
 
                 self.actualizar_metricas_roles()

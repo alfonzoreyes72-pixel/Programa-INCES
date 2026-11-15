@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPixmap
 
 from modales.ventana_error import VentanaError
+from usuarios.ventana_acceso import AvisoCuentaInhabilitada
 
 # Importación del gestor de base de datos global desde la raíz
 try:
@@ -206,6 +207,13 @@ class VentanaLogin(QMainWindow):
                 """
                 cursor.execute(sql, (usuario, contrasena))
                 resultado = cursor.fetchone()
+
+                # Cuenta inhabilitada por el administrador: no se permite el ingreso
+                if resultado and resultado.get('bloqueado'):
+                    cursor.close()
+                    aviso = AvisoCuentaInhabilitada(self)
+                    aviso.exec()
+                    return
 
                 # Registrar la fecha y hora del último acceso del usuario
                 if resultado:
