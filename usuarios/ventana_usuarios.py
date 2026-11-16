@@ -39,6 +39,12 @@ try:
 except ImportError:
     from ventana_acceso import VentanaAcceso, asegurar_columna_bloqueado
 
+# Importación de la ventana modal de actualización de credenciales
+try:
+    from .actualizar_credenciales import VentanaCredenciales
+except ImportError:
+    from actualizar_credenciales import VentanaCredenciales
+
 
 class FilaUsuario(QFrame):
     """Componente interactivo para cada fila de usuario con diseño en contenedor gris"""
@@ -46,6 +52,7 @@ class FilaUsuario(QFrame):
     rol_actualizado = pyqtSignal()
     usuario_eliminado = pyqtSignal()
     acceso_actualizado = pyqtSignal()
+    credenciales_actualizadas = pyqtSignal()
 
     def __init__(self, datos_usuario, parent=None, id_usuario_actual=None):
         super().__init__(parent)
@@ -179,7 +186,7 @@ class FilaUsuario(QFrame):
         opciones = [
             ("Asignar privilegios", estilo_normal, self.abrir_privilegios),
             ("Cambiar rol", estilo_normal, self.abrir_cambio_rol),
-            ("Actualizar credenciales", estilo_normal, None),
+            ("Actualizar credenciales", estilo_normal, self.abrir_credenciales),
             (texto_acceso, estilo_normal, self.abrir_acceso),
             ("Eliminar usuario", estilo_peligro, self.abrir_eliminacion),
         ]
@@ -225,6 +232,13 @@ class FilaUsuario(QFrame):
         if ventana.exec():
             # Se eliminó el usuario: se avisa para refrescar la lista y los contadores
             self.usuario_eliminado.emit()
+
+    def abrir_credenciales(self):
+        """Abre la ventana modal para actualizar el usuario y la contraseña"""
+        ventana = VentanaCredenciales(self.datos, self.window())
+        if ventana.exec():
+            # Se guardaron los cambios: se avisa para refrescar la lista
+            self.credenciales_actualizadas.emit()
 
     def abrir_acceso(self):
         """Abre la ventana modal para bloquear el acceso del usuario o devolvérselo"""
@@ -561,6 +575,7 @@ class VentanaUsuarios(QWidget):
                     fila.rol_actualizado.connect(self.cargar_usuarios_desde_bd)
                     fila.usuario_eliminado.connect(self.cargar_usuarios_desde_bd)
                     fila.acceso_actualizado.connect(self.cargar_usuarios_desde_bd)
+                    fila.credenciales_actualizadas.connect(self.cargar_usuarios_desde_bd)
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
 
                 self.actualizar_metricas_roles()

@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QScrollArea, QFormLayout,
     QComboBox, QDateEdit, QWidget, QFrame, QListView, QMessageBox
 )
-from PyQt6.QtCore import Qt, QDate, QPointF
+from PyQt6.QtCore import Qt, QDate, QPointF, QEvent
 from PyQt6.QtGui import QPalette, QColor, QPixmap, QPainter, QPen, QPolygonF
 
 # Importación del gestor de base de datos global desde la raíz
@@ -304,7 +304,10 @@ class RegistroTrabajadores(QDialog):
 
         self.date_nacimiento = QDateEdit()
         self.date_nacimiento.setCalendarPopup(True)
-        self.date_nacimiento.setDate(QDate(2006, 11, 18))
+        # Sin fecha elegida: se muestra el texto indicativo (la fecha mínima actúa como "vacío")
+        self.date_nacimiento.setMinimumDate(QDate(1900, 1, 1))
+        self.date_nacimiento.setSpecialValueText("Seleccione la fecha")
+        self.date_nacimiento.setDate(self.date_nacimiento.minimumDate())
         self.date_nacimiento.setFixedHeight(36)
 
         calendario = self.date_nacimiento.calendarWidget()
@@ -318,6 +321,8 @@ class RegistroTrabajadores(QDialog):
             QCalendarWidget QAbstractItemView:enabled { color: #333333; }
         """)
 
+        calendario.installEventFilter(self)
+
         self.txt_telefono = QLineEdit()
         self.txt_telefono.setPlaceholderText("Ej. 0412-1234567")
 
@@ -326,6 +331,7 @@ class RegistroTrabajadores(QDialog):
 
         self.cmb_sexo = QComboBox()
         self.cmb_sexo.addItems(["Masculino", "Femenino"])
+        self.cmb_sexo.setCurrentIndex(-1)
 
         self.txt_direccion = QLineEdit()
         self.txt_direccion.setPlaceholderText("Dirección de habitación")
@@ -356,6 +362,7 @@ class RegistroTrabajadores(QDialog):
                       self.cmb_estado_cv, self.cmb_municipio_cv, self.cmb_centro_votacion):
             combo.setView(QListView())
             combo.setFixedHeight(36)
+            combo.setPlaceholderText("Seleccione...")
 
         # Cargar catálogos iniciales desde la base de datos
         self.cargar_datos_maestros()
@@ -412,18 +419,100 @@ class RegistroTrabajadores(QDialog):
             self.es_modificacion = True
             self.txt_cedula.setText(str(datos.get("cedula", "")))
             self.txt_cedula.setReadOnly(True)
-            nombres_split = datos.get("nombre", "").split(" ", 1)
-            self.txt_nombres.setText(nombres_split[0] if len(nombres_split) > 0 else "")
-            self.txt_apellidos.setText(nombres_split[1] if len(nombres_split) > 1 else "")
+            if datos.get("nombres") is not None:
+                self.txt_nombres.setText(datos.get("nombres", ""))
+                self.txt_apellidos.setText(datos.get("apellidos", ""))
+            else:
+                nombres_split = datos.get("nombre", "").split(" ", 1)
+                self.txt_nombres.setText(nombres_split[0] if len(nombres_split) > 0 else "")
+                self.txt_apellidos.setText(nombres_split[1] if len(nombres_split) > 1 else "")
             self.txt_telefono.setText(datos.get("telefono", ""))
             self.txt_correo.setText(datos.get("correo", ""))
             self.txt_direccion.setText(datos.get("direccion", ""))
+            self.cargar_datos_trabajador(datos)
+
+    def eventFilter(self, obj, event):
+        # Al abrir el calendario sin fecha elegida, se muestra el año 2000 en lugar de 1900
+        if obj is self.date_nacimiento.calendarWidget() and event.type() == QEvent.Type.Show:
+            if self.date_nacimiento.date() == self.date_nacimiento.minimumDate():
+                obj.setCurrentPage(2000, 1)
+        return super().eventFilter(obj, event)
+
+    @staticmethod
+    def _a_qdate(valor):
+        """Convierte la fecha que llega de la base de datos en un QDate"""
+        if hasattr(valor, "year"):
+            return QDate(valor.year, valor.month, valor.day)
+        fecha = QDate.fromString(str(valor), "yyyy-MM-dd")
+        return fecha if fecha.isValid() else None
+
+    @staticmethod
+    def _seleccionar(combo, id_valor, texto):
+        """Selecciona en el combo por id (o por texto si no hay id); si no encuentra, queda en blanco"""
+        indice = -1
+        if id_valor is not None:
+            indice = combo.findData(id_valor)
+        if indice < 0 and texto:
+            indice = combo.findText(str(texto))
+        combo.setCurrentIndex(indice)
+
+    def cargar_datos_trabajador(self, datos):
+        """Muestra en la fecha y los selectores los datos registrados del trabajador"""
+        fecha = self._a_qdate(datos.get("fecha_nacimiento"))
+        if fecha:
+            self.date_nacimiento.setDate(fecha)
+
+        self.cmb_sexo.setCurrentIndex(
+            self.cmb_sexo.findText(str(datos.get("sexo", "")), Qt.MatchFlag.MatchFixedString)
+        )
+        self._seleccionar(self.cmb_departamento, datos.get("id_departamento"), datos.get("departamento"))
+        self._seleccionar(self.cmb_estado_laboral, datos.get("id_estado_laboral"), datos.get("estado_laboral"))
+        self.seleccionar_centro_votacion(datos)
+
+    def seleccionar_centro_votacion(self, datos):
+        """Selecciona estado, municipio y centro de votación del trabajador, en cascada"""
+        id_centro = datos.get("id_centro_votacion")
+        id_estado = id_municipio = None
+
+        if id_centro is not None:
+            try:
+                db = GestorBD()
+                conexion = db.obtener_conexion()
+                if conexion:
+                    cursor = conexion.cursor(dictionary=True)
+                    cursor.execute("""
+                        SELECT m.id_municipio, m.id_estado_fk
+                        FROM centros_votacion cv
+                        JOIN parroquias p ON cv.id_parroquia_fk = p.id_parroquia
+                        JOIN municipios m ON p.id_municipio_fk = m.id_municipio
+                        WHERE cv.id_centro_votacion = %s
+                    """, (id_centro,))
+                    fila = cursor.fetchone()
+                    cursor.close()
+                    if fila:
+                        id_estado, id_municipio = fila["id_estado_fk"], fila["id_municipio"]
+            except Exception as e:
+                print(f"Error al ubicar el centro de votación del trabajador: {e}")
+
+        if id_estado is not None:
+            # Cada selección carga automáticamente la lista del siguiente selector
+            self.cmb_estado_cv.setCurrentIndex(self.cmb_estado_cv.findData(id_estado))
+            self.cmb_municipio_cv.setCurrentIndex(self.cmb_municipio_cv.findData(id_municipio))
+            self.cmb_centro_votacion.setCurrentIndex(self.cmb_centro_votacion.findData(id_centro))
+        else:
+            # Respaldo: buscar por los nombres que trae la lista de trabajadores
+            self._seleccionar(self.cmb_estado_cv, None, datos.get("estado_cv"))
+            self._seleccionar(self.cmb_municipio_cv, None, datos.get("municipio_cv"))
+            self._seleccionar(self.cmb_centro_votacion, None, datos.get("centro_cv"))
 
     def abrir_registro_departamento(self):
         """Abre la ventana modal para registrar un nuevo departamento y actualiza el ComboBox"""
         dialogo = DialogoRegistrarDepartamento(self)
         if dialogo.exec() == QDialog.DialogCode.Accepted:
             self.cargar_departamentos()
+            # Se deja seleccionado el departamento recién registrado
+            nuevo = dialogo.txt_nombre_depto.text().strip()
+            self.cmb_departamento.setCurrentIndex(self.cmb_departamento.findText(nuevo))
 
     def cargar_departamentos(self):
         """Carga los departamentos desde la base de datos"""
@@ -444,6 +533,7 @@ class RegistroTrabajadores(QDialog):
                 cursor.execute("SELECT id_departamento, nombre_departamento FROM departamentos")
                 for d in cursor.fetchall():
                     self.cmb_departamento.addItem(d["nombre_departamento"], d["id_departamento"])
+                self.cmb_departamento.setCurrentIndex(-1)
                 cursor.close()
         except Exception as e:
             print(f"Error al cargar departamentos: {e}")
@@ -461,24 +551,27 @@ class RegistroTrabajadores(QDialog):
                 cursor.execute("SELECT id_estado_laboral, descripcion_estado FROM estados_laborales")
                 for el in cursor.fetchall():
                     self.cmb_estado_laboral.addItem(el["descripcion_estado"], el["id_estado_laboral"])
+                self.cmb_estado_laboral.setCurrentIndex(-1)
 
                 # Estados Geográficos
                 cursor.execute("SELECT id_estado, nombre_estado FROM estados")
                 estados = cursor.fetchall()
                 for est in estados:
                     self.cmb_estado_cv.addItem(est["nombre_estado"], est["id_estado"])
+                self.cmb_estado_cv.setCurrentIndex(-1)
 
                 cursor.close()
-
-                if estados:
-                    self.cargar_municipios()
         except Exception as e:
             print(f"Error al cargar datos maestros: {e}")
 
     def cargar_municipios(self):
+        """Carga los municipios del estado elegido; quedan en blanco hasta que se elija uno"""
+        self.cmb_municipio_cv.blockSignals(True)
         self.cmb_municipio_cv.clear()
+        self.cmb_centro_votacion.clear()
         id_estado = self.cmb_estado_cv.currentData()
         if id_estado is None:
+            self.cmb_municipio_cv.blockSignals(False)
             return
 
         try:
@@ -487,19 +580,17 @@ class RegistroTrabajadores(QDialog):
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
                 cursor.execute("SELECT id_municipio, nombre_municipio FROM municipios WHERE id_estado_fk = %s", (id_estado,))
-                municipios = cursor.fetchall()
-                for mun in municipios:
+                for mun in cursor.fetchall():
                     self.cmb_municipio_cv.addItem(mun["nombre_municipio"], mun["id_municipio"])
                 cursor.close()
-
-                if municipios:
-                    self.cargar_centros_votacion()
-                else:
-                    self.cmb_centro_votacion.clear()
         except Exception as e:
             print(f"Error al cargar municipios: {e}")
 
+        self.cmb_municipio_cv.setCurrentIndex(-1)
+        self.cmb_municipio_cv.blockSignals(False)
+
     def cargar_centros_votacion(self):
+        """Carga los centros de votación del municipio elegido; quedan en blanco hasta que se elija uno"""
         self.cmb_centro_votacion.clear()
         id_municipio = self.cmb_municipio_cv.currentData()
         if id_municipio is None:
@@ -523,6 +614,8 @@ class RegistroTrabajadores(QDialog):
         except Exception as e:
             print(f"Error al cargar centros de votación: {e}")
 
+        self.cmb_centro_votacion.setCurrentIndex(-1)
+
     def guardar_en_bd(self):
         cedula = self.txt_cedula.text().strip()
         nombres = self.txt_nombres.text().strip()
@@ -539,6 +632,22 @@ class RegistroTrabajadores(QDialog):
 
         if not cedula or not nombres or not apellidos:
             QMessageBox.warning(self, "Campos incompletos", "Por favor, complete la cédula, nombres y apellidos.")
+            return
+
+        if self.date_nacimiento.date() == self.date_nacimiento.minimumDate():
+            QMessageBox.warning(self, "Fecha de nacimiento", "Por favor, seleccione la fecha de nacimiento.")
+            return
+
+        if self.cmb_sexo.currentIndex() < 0:
+            QMessageBox.warning(self, "Sexo", "Por favor, seleccione el sexo.")
+            return
+
+        if id_departamento is None:
+            QMessageBox.warning(self, "Departamento", "Por favor, seleccione un departamento.")
+            return
+
+        if id_estado_laboral is None:
+            QMessageBox.warning(self, "Estado laboral", "Por favor, seleccione el estado laboral.")
             return
 
         if not id_centro_votacion:

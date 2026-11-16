@@ -30,22 +30,28 @@ class FilaTrabajador(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(50)
         
-        self.setStyleSheet("""
-            FilaTrabajador {
-                background-color: transparent;
+        # Trabajador retirado: fila en rojo pálido y nombre en rojo
+        es_retirado = "retirado" in str(self.datos.get("estado_laboral", "")).lower()
+        fondo = "#fdecec" if es_retirado else "transparent"
+        fondo_hover = "#fadcdc" if es_retirado else "#e8ebf0"
+        color_nombre = "#d32f2f" if es_retirado else "#333333"
+
+        self.setStyleSheet(f"""
+            FilaTrabajador {{
+                background-color: {fondo};
                 border-radius: 10px;
                 border-bottom: 1px solid #eaeaea;
-            }
-            FilaTrabajador:hover {
-                background-color: #e8ebf0;
-            }
+            }}
+            FilaTrabajador:hover {{
+                background-color: {fondo_hover};
+            }}
         """)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(15, 0, 15, 0)
 
         self.lbl_nombre = QLabel(self.datos["nombre"])
-        self.lbl_nombre.setStyleSheet("font-size: 14px; font-weight: bold; color: #333333; border: none; background: transparent;")
+        self.lbl_nombre.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {color_nombre}; border: none; background: transparent;")
         
         self.lbl_cedula = QLabel(str(self.datos["cedula"]))
         self.lbl_cedula.setStyleSheet("font-size: 14px; font-weight: bold; color: #555555; border: none; background: transparent;")
@@ -398,6 +404,11 @@ class VentanaTrabajadores(QWidget):
                         t.correo,
                         t.sexo,
                         t.direccion,
+                        t.nombres AS nombres,
+                        t.apellidos AS apellidos,
+                        t.id_departamento_fk AS id_departamento,
+                        t.id_estado_laboral_fk AS id_estado_laboral,
+                        t.id_centro_votacion_fk AS id_centro_votacion,
                         COALESCE(el.descripcion_estado, 'N/D') AS estado_laboral,
                         COALESCE(d.nombre_departamento, 'N/D') AS departamento,
                         COALESCE(e.nombre_estado, 'N/D') AS estado_cv,
@@ -452,6 +463,11 @@ class VentanaTrabajadores(QWidget):
 
         secuencia_cv = f"{datos.get('estado_cv', 'N/D')} - {datos.get('municipio_cv', 'N/D')} - {datos.get('centro_cv', 'N/D')}"
 
+        # Si el trabajador está retirado, solo su estado laboral se muestra en rojo
+        estado_laboral = datos.get('estado_laboral', 'N/D')
+        if "retirado" in str(estado_laboral).lower():
+            estado_laboral = f"<span style='color:#d32f2f; font-weight:bold;'>{estado_laboral}</span>"
+
         texto = f"""
         <b>Cédula:</b> {datos['cedula']}<br><br>
         <b>Fecha de Nacimiento:</b> {datos.get('fecha_nacimiento', 'N/D')}<br><br>
@@ -460,7 +476,7 @@ class VentanaTrabajadores(QWidget):
         <b>Sexo:</b> {datos.get('sexo', 'N/D')}<br><br>
         <b>Dirección:</b> {datos.get('direccion', 'N/D')}<br><br>
         <b>Departamento:</b> {datos.get('departamento', 'N/D')}<br><br>
-        <b>Estado Laboral:</b> {datos.get('estado_laboral', 'N/D')}<br><br>
+        <b>Estado Laboral:</b> {estado_laboral}<br><br>
         <b>Centro de Votación:</b><br>{secuencia_cv}
         """
         self.lbl_detalles_contenido.setText(texto)
