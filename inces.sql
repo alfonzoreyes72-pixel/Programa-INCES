@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 15-11-2026 a las 04:21:38
+-- Tiempo de generación: 16-11-2026 a las 05:40:10
 -- Versión del servidor: 10.11.16-MariaDB
 -- Versión de PHP: 8.3.36
 
@@ -53,7 +53,8 @@ CREATE TABLE `centros_votacion` (
 --
 
 INSERT INTO `centros_votacion` (`id_centro_votacion`, `nombre_centro`, `direccion_centro`, `id_parroquia_fk`) VALUES
-(2, 'Liceo Miguel José Sanz', 'Avenida Bolívar , diagonal a la Redoma Juana Ramírez \"La Avanzadora\" y al lado de la Casa de la Cultura, en el centro de Maturín', 1);
+(2, 'Liceo Miguel José Sanz', 'Avenida Bolívar , diagonal a la Redoma Juana Ramírez \"La Avanzadora\" y al lado de la Casa de la Cultura, en el centro de Maturín', 1),
+(3, 'Escuela Técnica \"Eloy Palacios Cabello\"', 'Calle Bermúdez, entre Calles 9 y 10. Cerca del Museo Mateo Manaure, laPlaza Bolívar de Maturín y la Iglesia San Simón. En el centro de Maturín', 1);
 
 -- --------------------------------------------------------
 
@@ -110,7 +111,8 @@ CREATE TABLE `estados_laborales` (
 --
 
 INSERT INTO `estados_laborales` (`id_estado_laboral`, `descripcion_estado`) VALUES
-(2, 'Trabajador fijo');
+(2, 'Trabajador fijo'),
+(3, 'Retirado');
 
 -- --------------------------------------------------------
 
@@ -246,9 +248,9 @@ CREATE TABLE `trabajadores` (
 
 INSERT INTO `trabajadores` (`cedula_trabajador`, `nombres`, `apellidos`, `fecha_nacimiento`, `telefono`, `correo`, `sexo`, `direccion`, `id_departamento_fk`, `id_estado_laboral_fk`, `id_centro_votacion_fk`) VALUES
 (31776780, 'Ángel', 'Malavé', '2006-11-18', '0412-1234567', 'angel@gmail.com', 'Masculino', 'las Cocuizas', 4, 2, 2),
-(32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'masculino', 'Invasión de la Puente, Calle 10', 3, 2, 2),
+(32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'Masculino', 'Invasión de la Puente, Calle 10', 4, 2, 3),
 (32753323, 'Jesús', 'López', '2006-11-18', '0412-1234567', 'jesus@gmail.com', 'Masculino', 'El Elevado de Maturín', 3, 2, 2),
-(338614649, 'YUSLEN ANTONELA', 'FACURE PEREZ', '2006-11-18', '04128614649', '', 'Masculino', '', 3, 2, 2);
+(338614649, 'YUSLEN ANTONELA', 'FACURE PEREZ', '2010-10-10', '04128614649', '', 'Femenino', 'la libertad', 4, 3, 2);
 
 -- --------------------------------------------------------
 
@@ -382,7 +384,7 @@ ALTER TABLE `asistencias`
 -- AUTO_INCREMENT de la tabla `centros_votacion`
 --
 ALTER TABLE `centros_votacion`
-  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `departamentos`
@@ -400,7 +402,7 @@ ALTER TABLE `estados`
 -- AUTO_INCREMENT de la tabla `estados_laborales`
 --
 ALTER TABLE `estados_laborales`
-  MODIFY `id_estado_laboral` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id_estado_laboral` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `incidencias`
