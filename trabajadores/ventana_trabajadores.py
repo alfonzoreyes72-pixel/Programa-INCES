@@ -1,9 +1,13 @@
 import sys
+import os
+import re
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
     QLineEdit, QPushButton, QLabel, QScrollArea, QSizePolicy, QDialog
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtGui import QIcon, QPixmap, QPainter
+from PyQt6.QtSvg import QSvgRenderer
 
 # Importación de la ventana modal de registro
 try:
@@ -20,6 +24,84 @@ except ImportError:
     from database import GestorBD
 
 
+def formatear_cedula(valor):
+    """31776780 -> 31.776.780"""
+    try:
+        return f"{int(valor):,}".replace(",", ".")
+    except (TypeError, ValueError):
+        return str(valor)
+
+
+# ==================== ICONOS (rutas autocalculables) ====================
+# Las imágenes viven en la carpeta 'imagenes' de la raíz del proyecto (junto a ventana_principal.py).
+# La ruta se calcula a partir de la ubicación de este archivo, así funciona en cualquier computadora.
+_DIRECTORIO = os.path.dirname(os.path.abspath(__file__))
+CARPETAS_IMAGENES = [
+    os.path.join(_DIRECTORIO, '..', 'imagenes'),
+    os.path.join(_DIRECTORIO, 'imagenes'),
+]
+
+
+def _clave_nombre(texto):
+    """'icono-lapiz.svg' -> 'iconolapiz' (ignora signos, espacios y mayúsculas)"""
+    return re.sub(r"[^a-z0-9]", "", os.path.splitext(str(texto))[0].lower())
+
+
+def buscar_icono(clave):
+    for carpeta in CARPETAS_IMAGENES:
+        carpeta = os.path.abspath(carpeta)
+        if not os.path.isdir(carpeta):
+            continue
+        for archivo in os.listdir(carpeta):
+            if archivo.lower().endswith(".svg") and _clave_nombre(archivo) == clave:
+                return os.path.join(carpeta, archivo)
+    return None
+
+
+def cargar_pixmap_svg(clave, alto):
+    """Dibuja un SVG con el alto indicado (manteniendo su proporción) y nitidez para pantallas HD"""
+    ruta = buscar_icono(clave)
+    if not ruta:
+        return None
+    renderer = QSvgRenderer(ruta)
+    if not renderer.isValid():
+        return None
+    tam = renderer.defaultSize()
+    proporcion = tam.width() / tam.height() if tam.height() else 1
+    escala = 2
+    alto_px = int(alto * escala)
+    ancho_px = max(1, int(round(alto_px * proporcion)))
+    pixmap = QPixmap(ancho_px, alto_px)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    renderer.render(painter)
+    painter.end()
+    pixmap.setDevicePixelRatio(escala)
+    return pixmap
+
+
+ESTILO_BOTON_AZUL = """
+    QPushButton {
+        background-color: #0833a2;
+        color: white;
+        border: 2px solid #0833a2;
+        border-radius: 18px;
+        padding: 0px 14px;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    QPushButton:hover {
+        background-color: #3150ff;
+        border: 2px solid #3150ff;
+    }
+    QPushButton:disabled {
+        background-color: #a9b8dc;
+        border: 2px solid #a9b8dc;
+        color: #ffffff;
+    }
+"""
+
+
 class FilaTrabajador(QFrame):
     """Componente interactivo para cada fila de trabajador en la lista"""
     cliqueado = pyqtSignal(dict)
@@ -31,21 +113,10 @@ class FilaTrabajador(QFrame):
         self.setFixedHeight(50)
         
         # Trabajador retirado: fila en rojo pálido y nombre en rojo
-        es_retirado = "retirado" in str(self.datos.get("estado_laboral", "")).lower()
-        fondo = "#fdecec" if es_retirado else "transparent"
-        fondo_hover = "#fadcdc" if es_retirado else "#e8ebf0"
-        color_nombre = "#d32f2f" if es_retirado else "#333333"
-
-        self.setStyleSheet(f"""
-            FilaTrabajador {{
-                background-color: {fondo};
-                border-radius: 10px;
-                border-bottom: 1px solid #eaeaea;
-            }}
-            FilaTrabajador:hover {{
-                background-color: {fondo_hover};
-            }}
-        """)
+        self.es_retirado = "retirado" in str(self.datos.get("estado_laboral", "")).lower()
+        self.seleccionada = False
+        color_nombre = "#d32f2f" if self.es_retirado else "#333333"
+        self.aplicar_estilo()
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(15, 0, 15, 0)
@@ -53,12 +124,39 @@ class FilaTrabajador(QFrame):
         self.lbl_nombre = QLabel(self.datos["nombre"])
         self.lbl_nombre.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {color_nombre}; border: none; background: transparent;")
         
-        self.lbl_cedula = QLabel(str(self.datos["cedula"]))
+        self.lbl_cedula = QLabel(formatear_cedula(self.datos["cedula"]))
         self.lbl_cedula.setStyleSheet("font-size: 14px; font-weight: bold; color: #555555; border: none; background: transparent;")
 
         layout.addWidget(self.lbl_nombre)
         layout.addStretch()
         layout.addWidget(self.lbl_cedula)
+
+    def aplicar_estilo(self):
+        """Fila normal, retirada (rojo pálido) y/o seleccionada (borde azul)"""
+        if self.seleccionada:
+            fondo = "#fdecec" if self.es_retirado else "#eef4fd"
+            fondo_hover = "#fadcdc" if self.es_retirado else "#e6f0ff"
+            borde = "border: 2px solid #0833a2;"
+        else:
+            fondo = "#fdecec" if self.es_retirado else "transparent"
+            fondo_hover = "#fadcdc" if self.es_retirado else "#e8ebf0"
+            borde = "border: none; border-bottom: 1px solid #eaeaea;"
+
+        self.setStyleSheet(f"""
+            FilaTrabajador {{
+                background-color: {fondo};
+                border-radius: 10px;
+                {borde}
+            }}
+            FilaTrabajador:hover {{
+                background-color: {fondo_hover};
+            }}
+        """)
+
+    def set_seleccionada(self, valor):
+        if self.seleccionada != valor:
+            self.seleccionada = valor
+            self.aplicar_estilo()
 
     def mousePressEvent(self, event):
         self.cliqueado.emit(self.datos)
@@ -163,36 +261,27 @@ class VentanaTrabajadores(QWidget):
         controles_layout.setSpacing(10)
 
         self.btn_agregar = QPushButton("+ Agregar")
-        self.btn_agregar.setFixedSize(105, 36)
+        self.btn_agregar.setFixedSize(110, 36)
         self.btn_agregar.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_agregar.setStyleSheet("""
-            QPushButton {
-                background-color: #163e7a;
-                color: white;
-                border-radius: 18px;
-                font-size: 13px;
-                font-weight: bold;
-                border: none;
-            }
-            QPushButton:hover { background-color: #235299; }
-        """)
+        self.btn_agregar.setStyleSheet(ESTILO_BOTON_AZUL)
         self.btn_agregar.clicked.connect(self.abrir_dialogo_agregar)
         controles_layout.addWidget(self.btn_agregar)
 
-        self.btn_modificar = QPushButton("Modificar")
-        self.btn_modificar.setFixedSize(105, 36)
+        # Modificar: solo se activa cuando hay un trabajador seleccionado (se ve en azul apagado si no)
+        self.btn_modificar = QPushButton(" Modificar")
+        self.btn_modificar.setFixedSize(130, 36)
         self.btn_modificar.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_modificar.setStyleSheet("""
-            QPushButton {
-                background-color: #163e7a;
-                color: white;
-                border-radius: 18px;
-                font-size: 13px;
-                font-weight: bold;
-                border: none;
-            }
-            QPushButton:hover { background-color: #235299; }
-        """)
+        self.btn_modificar.setEnabled(False)
+        self.btn_modificar.setToolTip("Selecciona un trabajador para modificarlo")
+        self.btn_modificar.setStyleSheet(ESTILO_BOTON_AZUL)
+        pixmap_lapiz = cargar_pixmap_svg("iconolapiz", 16)
+        if pixmap_lapiz:
+            # El mismo icono blanco en estado normal y deshabilitado, para que no se vea grisáceo
+            icono_lapiz = QIcon()
+            icono_lapiz.addPixmap(pixmap_lapiz, QIcon.Mode.Normal)
+            icono_lapiz.addPixmap(pixmap_lapiz, QIcon.Mode.Disabled)
+            self.btn_modificar.setIcon(icono_lapiz)
+            self.btn_modificar.setIconSize(QSize(16, 16))
         self.btn_modificar.clicked.connect(self.abrir_dialogo_modificar)
         controles_layout.addWidget(self.btn_modificar)
 
@@ -332,6 +421,12 @@ class VentanaTrabajadores(QWidget):
         self.actualizar_metricas_globales()
         self.cargar_trabajadores_desde_bd()
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Al volver a esta ventana se recargan los datos, para ver los cambios hechos en otras ventanas
+        # (por ejemplo, un centro de votación que se modificó); se conservan filtros, búsqueda y selección
+        self.cargar_trabajadores_desde_bd()
+
     def cambiar_filtro_metrica(self, tipo_filtro):
         self.filtro_actual = tipo_filtro
         if tipo_filtro == "foraneos":
@@ -437,7 +532,9 @@ class VentanaTrabajadores(QWidget):
                                    OR t.apellidos LIKE %s 
                                    OR CONCAT(t.nombres, ' ', t.apellidos) LIKE %s)"""
                     patron = f"%{texto_busqueda}%"
-                    params.extend([patron, patron, patron, patron])
+                    # La cédula se guarda sin puntos, así que también se busca sin ellos
+                    patron_cedula = f"%{texto_busqueda.replace('.', '')}%"
+                    params.extend([patron_cedula, patron, patron, patron])
 
                 cursor.execute(sql, tuple(params))
                 trabajadores = cursor.fetchall()
@@ -447,6 +544,13 @@ class VentanaTrabajadores(QWidget):
                     fila = FilaTrabajador(t)
                     fila.cliqueado.connect(self.mostrar_detalles_trabajador)
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
+
+                # Si el trabajador seleccionado sigue en la lista, se mantiene marcado y se refrescan sus datos
+                if self.trabajador_seleccionado is not None:
+                    for t in trabajadores:
+                        if t["cedula"] == self.trabajador_seleccionado["cedula"]:
+                            self.mostrar_detalles_trabajador(t)
+                            break
 
                 self.actualizar_metricas_globales()
 
@@ -469,7 +573,7 @@ class VentanaTrabajadores(QWidget):
             estado_laboral = f"<span style='color:#d32f2f; font-weight:bold;'>{estado_laboral}</span>"
 
         texto = f"""
-        <b>Cédula:</b> {datos['cedula']}<br><br>
+        <b>Cédula:</b> {formatear_cedula(datos['cedula'])}<br><br>
         <b>Fecha de Nacimiento:</b> {datos.get('fecha_nacimiento', 'N/D')}<br><br>
         <b>Teléfono:</b> {datos.get('telefono', 'N/D')}<br><br>
         <b>Correo:</b> {datos.get('correo', 'N/D')}<br><br>
@@ -482,9 +586,23 @@ class VentanaTrabajadores(QWidget):
         self.lbl_detalles_contenido.setText(texto)
         self.panel_detalles.show()
 
+        # El trabajador queda marcado en la lista y se habilita el botón Modificar
+        self.marcar_fila_seleccionada(datos["cedula"])
+        self.btn_modificar.setEnabled(True)
+
+    def marcar_fila_seleccionada(self, cedula):
+        """Dibuja el borde azul en la fila de ese trabajador (None = ninguna)"""
+        for i in range(self.layout_filas.count()):
+            fila = self.layout_filas.itemAt(i).widget()
+            if isinstance(fila, FilaTrabajador):
+                fila.set_seleccionada(cedula is not None and fila.datos["cedula"] == cedula)
+
     def ocultar_detalles(self):
+        # Al cerrar la tarjeta lateral se deselecciona al trabajador y se desactiva Modificar
         self.trabajador_seleccionado = None
         self.panel_detalles.hide()
+        self.marcar_fila_seleccionada(None)
+        self.btn_modificar.setEnabled(False)
 
     def abrir_dialogo_agregar(self):
         dialogo = RegistroTrabajadores("Registrar Nuevo Trabajador", parent=self)

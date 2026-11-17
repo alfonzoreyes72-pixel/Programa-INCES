@@ -162,13 +162,18 @@ ESTILO_LISTA_AUTOCOMPLETAR = """
 
 
 class VentanaAgregarCentro(QDialog):
-    """Ventana modal para registrar un nuevo centro de votación"""
+    """Ventana modal para registrar un centro de votación nuevo o modificar uno existente"""
 
-    def __init__(self, parent=None, modo_prueba=False):
+    def __init__(self, parent=None, modo_prueba=False, datos=None):
         super().__init__(parent)
 
         # En modo prueba la ventana funciona completa pero NO escribe en la base de datos
         self.modo_prueba = modo_prueba
+
+        # Si llegan datos, la ventana modifica ese centro en lugar de crear uno nuevo
+        self.datos = datos
+        self.es_modificacion = bool(datos)
+        self.id_centro_editar = datos.get("id_centro_votacion") if datos else None
 
         # Datos del centro recién registrado (la ventana de votación los usa para mostrarlo)
         self.id_centro = None
@@ -183,7 +188,7 @@ class VentanaAgregarCentro(QDialog):
         self.id_municipio = None
         self.id_parroquia = None
 
-        titulo = "Agregar centro de votación"
+        titulo = "Modificar centro de votación" if self.es_modificacion else "Agregar centro de votación"
         self.setWindowTitle(titulo + (" (modo prueba)" if modo_prueba else ""))
         self.setFixedSize(540, 690)
         self.setPalette(paleta_clara())
@@ -304,38 +309,43 @@ class VentanaAgregarCentro(QDialog):
         self.cmb_municipio.editTextChanged.connect(self.al_cambiar_municipio)
         self.cmb_parroquia.editTextChanged.connect(self.al_cambiar_parroquia)
 
+        if self.es_modificacion:
+            self.precargar_datos()
+
+    def precargar_datos(self):
+        """Rellena el formulario con los datos actuales del centro que se va a modificar"""
+        self.txt_nombre.setText(str(self.datos.get("nombre_centro", "")))
+        self.txt_direccion.setPlainText(str(self.datos.get("direccion_centro", "")))
+        # Cada selección carga automáticamente la lista del siguiente nivel
+        self.cmb_estado.setEditText(str(self.datos.get("estado", "")))
+        self.cmb_municipio.setEditText(str(self.datos.get("municipio", "")))
+        self.cmb_parroquia.setEditText(str(self.datos.get("parroquia", "")))
+
     # ==================== COMPONENTES ====================
     def _crear_combo_editable(self, texto_guia, max_caracteres):
         """Lista desplegable en la que también se puede escribir (con autocompletado)"""
         combo = QComboBox()
         combo.setEditable(True)
-
-        # La vista se crea una sola vez y se estiliza directamente; setView() la propaga
-        # automáticamente al popup del autocompletador (combo.completer()).
-        vista = QListView()
-        vista.setStyleSheet(ESTILO_LISTA_AUTOCOMPLETAR)
-        combo.setView(vista)
-
+        combo.setView(QListView())
         combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         combo.setFixedHeight(36)
 
         # El campo de texto interno no debe dibujar un segundo borde dentro del combo
         editor = combo.lineEdit()
-        editor.setPlaceholderText(texto_guia)
-        editor.setMaxLength(max_caracteres)
-        editor.setStyleSheet(
-            "QLineEdit { border: none; background: transparent; padding: 0px; font-size: 13px; color: #333333; }"
-            "QLineEdit:focus { border: none; }"
-        )
+        if editor is not None:
+            editor.setPlaceholderText(texto_guia)
+            editor.setMaxLength(max_caracteres)
+            editor.setStyleSheet(
+                "QLineEdit { border: none; background: transparent; padding: 0px; font-size: 13px; color: #333333; }"
+                "QLineEdit:focus { border: none; }"
+            )
 
-        # En algunas versiones de PyQt6 el popup del autocompletador no existe hasta
-        # que se invoca; se protege contra None para evitar el AttributeError.
         completador = combo.completer()
         if completador is not None:
             completador.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
             completador.setFilterMode(Qt.MatchFlag.MatchContains)
             popup = completador.popup()
-            if popup is not None and popup is not vista:
+            if popup is not None:
                 popup.setStyleSheet(ESTILO_LISTA_AUTOCOMPLETAR)
 
         combo.setCurrentIndex(-1)
@@ -465,6 +475,15 @@ class VentanaAgregarCentro(QDialog):
             QMessageBox.warning(self, "Campo vacío", "Por favor, escriba la dirección del centro de votación.")
             return
 
+        # Al modificar, si no se cambió nada simplemente se cierra
+        if (self.es_modificacion
+                and nombre == limpiar(self.datos.get("nombre_centro", ""))
+                and direccion == limpiar(self.datos.get("direccion_centro", ""))
+                and self.id_parroquia is not None
+                and self.id_parroquia == self.datos.get("id_parroquia")):
+            self.reject()
+            return
+
         # Si se escribió algo que no existe todavía, se pide confirmar para evitar errores de escritura
         nuevos = []
         if self.id_estado is None:
@@ -489,7 +508,7 @@ class VentanaAgregarCentro(QDialog):
         if self.modo_prueba:
             QMessageBox.information(
                 self, "Modo de prueba",
-                "Las validaciones son correctas.\n\nModo de prueba: el centro NO se guardó en la base de datos."
+                "Las validaciones son correctas.\n\nModo de prueba: los datos NO se guardaron en la base de datos."
             )
             self.accept()
             return
@@ -507,8 +526,9 @@ class VentanaAgregarCentro(QDialog):
             # El mismo centro no puede registrarse dos veces en la misma parroquia
             if self.id_parroquia is not None:
                 cursor.execute(
-                    "SELECT id_centro_votacion FROM centros_votacion WHERE nombre_centro = %s AND id_parroquia_fk = %s",
-                    (nombre, self.id_parroquia)
+                    "SELECT id_centro_votacion FROM centros_votacion "
+                    "WHERE nombre_centro = %s AND id_parroquia_fk = %s AND id_centro_votacion <> %s",
+                    (nombre, self.id_parroquia, self.id_centro_editar or 0)
                 )
                 if cursor.fetchone():
                     cursor.close()
@@ -539,17 +559,32 @@ class VentanaAgregarCentro(QDialog):
                 )
                 id_parroquia = cursor.lastrowid
 
-            cursor.execute(
-                "INSERT INTO centros_votacion (nombre_centro, direccion_centro, id_parroquia_fk) VALUES (%s, %s, %s)",
-                (nombre, direccion, id_parroquia)
-            )
-            self.id_centro = cursor.lastrowid
+            if self.es_modificacion:
+                # Se modifica el centro existente: no se crea uno nuevo
+                cursor.execute(
+                    "UPDATE centros_votacion SET nombre_centro = %s, direccion_centro = %s, id_parroquia_fk = %s "
+                    "WHERE id_centro_votacion = %s",
+                    (nombre, direccion, id_parroquia, self.id_centro_editar)
+                )
+                if cursor.rowcount == 0:
+                    conexion.rollback()
+                    cursor.close()
+                    QMessageBox.warning(self, "Centro no encontrado", "Este centro de votación ya no existe en la base de datos.")
+                    return
+                self.id_centro = self.id_centro_editar
+            else:
+                cursor.execute(
+                    "INSERT INTO centros_votacion (nombre_centro, direccion_centro, id_parroquia_fk) VALUES (%s, %s, %s)",
+                    (nombre, direccion, id_parroquia)
+                )
+                self.id_centro = cursor.lastrowid
             self.id_estado_resultado = id_estado
             self.id_municipio_resultado = id_municipio
 
             conexion.commit()
             cursor.close()
-            QMessageBox.information(self, "Éxito", "Centro de votación registrado correctamente.")
+            mensaje = "Centro de votación actualizado correctamente." if self.es_modificacion else "Centro de votación registrado correctamente."
+            QMessageBox.information(self, "Éxito", mensaje)
             self.accept()
         except Exception as e:
             if conexion:

@@ -6,23 +6,24 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame,
-    QLineEdit, QPushButton, QLabel, QScrollArea, QComboBox, QListView, QSizePolicy
+    QLineEdit, QPushButton, QLabel, QScrollArea, QComboBox, QListView, QSizePolicy, QMessageBox
 )
 from PyQt6.QtCore import Qt, QTimer, QPointF, QPoint, QRect, QRectF, QSize, QEvent, pyqtSignal
 from PyQt6.QtGui import QPixmap, QPainter, QPainterPath, QPen, QColor, QPolygonF, QIcon
 from PyQt6.QtSvg import QSvgRenderer
 
-# --- Aseguramos que la raíz del proyecto y la carpeta votacion/ estén en sys.path ---
-# De esta forma se puede importar database (que vive en la raíz) y agregar_centro (que
-# vive en votacion/) sin importar si el archivo se ejecuta solo o desde ventana_principal.py.
-_DIR_ACTUAL = os.path.dirname(os.path.abspath(__file__))
-_DIR_RAIZ = os.path.abspath(os.path.join(_DIR_ACTUAL, '..'))
-for _ruta in (_DIR_RAIZ, _DIR_ACTUAL):
-    if _ruta not in sys.path:
-        sys.path.insert(0, _ruta)
+# Importación del gestor de base de datos
+try:
+    from database import GestorBD
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    from database import GestorBD
 
-from database import GestorBD
-from agregar_centro import VentanaAgregarCentro
+# Importación de la ventana modal para agregar centros de votación
+try:
+    from .agregar_centro import VentanaAgregarCentro
+except ImportError:
+    from agregar_centro import VentanaAgregarCentro
 
 
 ANCHO_MIN_TARJETA = 290
@@ -899,21 +900,40 @@ class VentanaVotacion(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
-        self.reacomodar(forzar=True)
+        # Cada vez que se entra a esta ventana se recargan los datos, para ver los cambios
+        # hechos en otras ventanas (por ejemplo, un trabajador movido a otro centro)
+        self.actualizar_datos()
 
-    def seleccionar_tarjeta(self, tarjeta):
-        """Marca como seleccionada la tarjeta indicada"""
-        if self.tarjeta_seleccionada is not tarjeta:
-            if self.tarjeta_seleccionada is not None:
-                self.tarjeta_seleccionada.set_seleccionada(False)
-            tarjeta.set_seleccionada(True)
-            self.tarjeta_seleccionada = tarjeta
-        self.btn_modificar.setEnabled(True)
+    def actualizar_datos(self):
+        """Recarga filtros y centros desde la base de datos conservando filtros, búsqueda y selección"""
+        id_estado = self.cmb_estado.currentData()
+        id_municipio = self.cmb_municipio.currentData()
+        id_seleccionado = None
+        if self.tarjeta_seleccionada is not None:
+            id_seleccionado = self.tarjeta_seleccionada.datos.get("id_centro_votacion")
+
+        self.restaurar_filtros(id_estado, id_municipio)
+        self.cargar_centros()
+
+        if id_seleccionado is not None:
+            for tarjeta in self.tarjetas:
+                if tarjeta.datos.get("id_centro_votacion") == id_seleccionado:
+                    self.alternar_seleccion(tarjeta)
+                    break
+
+    def restaurar_filtros(self, id_estado, id_municipio):
+        """Recarga las listas de estados y municipios y vuelve a elegir los filtros indicados"""
+        self.cargar_estados()
+        self.cmb_estado.blockSignals(True)
+        self.cmb_estado.setCurrentIndex(max(0, self.cmb_estado.findData(id_estado)))
+        self.cmb_estado.blockSignals(False)
+        self.cargar_municipios()
+        self.cmb_municipio.blockSignals(True)
+        self.cmb_municipio.setCurrentIndex(max(0, self.cmb_municipio.findData(id_municipio)))
+        self.cmb_municipio.blockSignals(False)
 
     def mostrar_trabajadores(self, tarjeta, pildora):
         """Despliega, debajo de la etiqueta, la lista de trabajadores del centro de votación"""
-        self.seleccionar_tarjeta(tarjeta)
-
         if self.popup_trabajadores is not None:
             try:
                 if self.popup_trabajadores.isVisible():
@@ -924,6 +944,10 @@ class VentanaVotacion(QWidget):
             except RuntimeError:
                 pass
             self.popup_trabajadores = None
+
+        # El centro cuyos trabajadores se están viendo queda seleccionado
+        if self.tarjeta_seleccionada is not tarjeta:
+            self.alternar_seleccion(tarjeta)
 
         trabajadores = self._consultar("""
             SELECT t.cedula_trabajador, t.nombres, t.apellidos, el.descripcion_estado AS estado_laboral
@@ -954,44 +978,53 @@ class VentanaVotacion(QWidget):
         if self.tarjeta_seleccionada is tarjeta:
             tarjeta.set_seleccionada(False)
             self.tarjeta_seleccionada = None
-            self.btn_modificar.setEnabled(False)
         else:
-            self.seleccionar_tarjeta(tarjeta)
+            if self.tarjeta_seleccionada is not None:
+                self.tarjeta_seleccionada.set_seleccionada(False)
+            tarjeta.set_seleccionada(True)
+            self.tarjeta_seleccionada = tarjeta
+        self.btn_modificar.setEnabled(self.tarjeta_seleccionada is not None)
 
     # ==================== ACCIONES ====================
     def agregar_centro(self):
-        dialogo = VentanaAgregarCentro(self.window())
+        """Abre la ventana modal para registrar un centro; al guardar, se muestra el centro nuevo"""
+        dialogo = VentanaAgregarCentro(parent=self)
         if dialogo.exec():
-            estado_actual = self.cmb_estado.currentData()
-            municipio_actual = self.cmb_municipio.currentData()
+            self.mostrar_centro(dialogo.id_estado_resultado, dialogo.id_municipio_resultado, dialogo.id_centro)
 
-            self.cargar_estados()
+    def mostrar_centro(self, id_estado, id_municipio, id_centro):
+        """Recarga los filtros, ubica el estado y municipio del centro indicado y lo deja seleccionado"""
+        # Se limpia la búsqueda para que el centro nuevo no quede oculto por el texto escrito
+        self.txt_buscar.blockSignals(True)
+        self.txt_buscar.clear()
+        self.txt_buscar.blockSignals(False)
+        if self.accion_lupa is not None:
+            self.accion_lupa.setVisible(True)
 
-            # Si el filtro actual ocultaría el nuevo centro, se muestra todos o la ubicación creada
-            if estado_actual is not None and estado_actual != dialogo.id_estado_resultado:
-                idx_est = 0
-            else:
-                idx_est = self.cmb_estado.findData(estado_actual)
-            self.cmb_estado.setCurrentIndex(max(0, idx_est))
-            self.cargar_municipios()
+        # El estado o el municipio pueden ser nuevos: se recargan los filtros y se eligen los del centro
+        self.restaurar_filtros(id_estado, id_municipio)
+        self.cargar_centros()
 
-            if municipio_actual is not None and municipio_actual != dialogo.id_municipio_resultado:
-                idx_mun = 0
-            else:
-                idx_mun = self.cmb_municipio.findData(municipio_actual)
-            self.cmb_municipio.setCurrentIndex(max(0, idx_mun))
-
-            self.cargar_centros()
-
-            if dialogo.id_centro is not None:
-                for tarjeta in self.tarjetas:
-                    if tarjeta.datos.get("id_centro_votacion") == dialogo.id_centro:
-                        self.seleccionar_tarjeta(tarjeta)
-                        self.scroll.ensureWidgetVisible(tarjeta)
-                        break
+        for tarjeta in self.tarjetas:
+            if tarjeta.datos.get("id_centro_votacion") == id_centro:
+                self.alternar_seleccion(tarjeta)
+                QTimer.singleShot(0, lambda t=tarjeta: self.scroll.ensureWidgetVisible(t))
+                break
 
     def modificar_centro(self):
-        pass
+        """Abre la misma ventana de agregar, con los datos del centro seleccionado, para modificarlo"""
+        if self.tarjeta_seleccionada is None:
+            return
+        try:
+            dialogo = VentanaAgregarCentro(parent=self, datos=self.tarjeta_seleccionada.datos)
+        except Exception as e:
+            pista = ""
+            if isinstance(e, TypeError) and "datos" in str(e):
+                pista = "\n\nParece que agregar_centro.py no es la versión más reciente: reemplázalo por el nuevo."
+            QMessageBox.critical(self, "Error", f"No se pudo abrir la ventana de modificación:\n{e}{pista}")
+            return
+        if dialogo.exec():
+            self.mostrar_centro(dialogo.id_estado_resultado, dialogo.id_municipio_resultado, dialogo.id_centro)
 
 
 if __name__ == "__main__":

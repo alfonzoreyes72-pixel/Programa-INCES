@@ -1,4 +1,5 @@
 import sys
+import re
 import tempfile
 from pathlib import Path
 
@@ -9,6 +10,15 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QDate, QPointF, QEvent
 from PyQt6.QtGui import QPalette, QColor, QPixmap, QPainter, QPen, QPolygonF
+
+
+def formatear_digitos_cedula(digitos):
+    """'31776780' -> '31.776.780' (puntos por miles, de derecha a izquierda)"""
+    partes = []
+    while digitos:
+        partes.insert(0, digitos[-3:])
+        digitos = digitos[:-3]
+    return ".".join(partes)
 
 # Importación del gestor de base de datos global desde la raíz
 try:
@@ -294,7 +304,10 @@ class RegistroTrabajadores(QDialog):
         form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
 
         self.txt_cedula = QLineEdit()
-        self.txt_cedula.setPlaceholderText("Ej. 12345678")
+        self.txt_cedula.setPlaceholderText("Ej. 12.345.678")
+        self.txt_cedula.setMaxLength(11)
+        # El usuario solo escribe los números: los puntos se colocan automáticamente
+        self.txt_cedula.textChanged.connect(self.al_cambiar_cedula)
 
         self.txt_nombres = QLineEdit()
         self.txt_nombres.setPlaceholderText("Nombres completos")
@@ -417,7 +430,7 @@ class RegistroTrabajadores(QDialog):
         self.es_modificacion = False
         if datos:
             self.es_modificacion = True
-            self.txt_cedula.setText(str(datos.get("cedula", "")))
+            self.txt_cedula.setText(formatear_digitos_cedula(re.sub(r"\D", "", str(datos.get("cedula", "")))))
             self.txt_cedula.setReadOnly(True)
             if datos.get("nombres") is not None:
                 self.txt_nombres.setText(datos.get("nombres", ""))
@@ -430,6 +443,26 @@ class RegistroTrabajadores(QDialog):
             self.txt_correo.setText(datos.get("correo", ""))
             self.txt_direccion.setText(datos.get("direccion", ""))
             self.cargar_datos_trabajador(datos)
+
+    def al_cambiar_cedula(self, texto):
+        """Da formato de miles a la cédula mientras se escribe, conservando la posición del cursor"""
+        posicion = self.txt_cedula.cursorPosition()
+        digitos_antes = sum(c.isdigit() for c in texto[:posicion])
+        digitos = "".join(c for c in texto if c.isdigit())[:9]
+        formateado = formatear_digitos_cedula(digitos)
+        if formateado == texto:
+            return
+
+        self.txt_cedula.blockSignals(True)
+        self.txt_cedula.setText(formateado)
+        self.txt_cedula.blockSignals(False)
+
+        nueva_posicion, contados = 0, 0
+        while nueva_posicion < len(formateado) and contados < digitos_antes:
+            if formateado[nueva_posicion].isdigit():
+                contados += 1
+            nueva_posicion += 1
+        self.txt_cedula.setCursorPosition(nueva_posicion)
 
     def eventFilter(self, obj, event):
         # Al abrir el calendario sin fecha elegida, se muestra el año 2000 en lugar de 1900
@@ -617,7 +650,7 @@ class RegistroTrabajadores(QDialog):
         self.cmb_centro_votacion.setCurrentIndex(-1)
 
     def guardar_en_bd(self):
-        cedula = self.txt_cedula.text().strip()
+        cedula = re.sub(r"\D", "", self.txt_cedula.text())  # En la base de datos se guarda sin puntos
         nombres = self.txt_nombres.text().strip()
         apellidos = self.txt_apellidos.text().strip()
         fecha_nac = self.date_nacimiento.date().toString("yyyy-MM-dd")
