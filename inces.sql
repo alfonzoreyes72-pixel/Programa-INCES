@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 16-11-2026 a las 05:40:10
+-- Tiempo de generación: 19-11-2026 a las 04:17:48
 -- Versión del servidor: 10.11.16-MariaDB
 -- Versión de PHP: 8.3.36
 
@@ -250,7 +250,7 @@ INSERT INTO `trabajadores` (`cedula_trabajador`, `nombres`, `apellidos`, `fecha_
 (31776780, 'Ángel', 'Malavé', '2006-11-18', '0412-1234567', 'angel@gmail.com', 'Masculino', 'las Cocuizas', 4, 2, 2),
 (32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'Masculino', 'Invasión de la Puente, Calle 10', 4, 2, 3),
 (32753323, 'Jesús', 'López', '2006-11-18', '0412-1234567', 'jesus@gmail.com', 'Masculino', 'El Elevado de Maturín', 3, 2, 2),
-(338614649, 'YUSLEN ANTONELA', 'FACURE PEREZ', '2010-10-10', '04128614649', '', 'Femenino', 'la libertad', 4, 3, 2);
+(338614649, 'YUSLEN ANTONELA', 'FACURE PEREZ', '2010-10-10', '04128614649', '', 'Femenino', 'la libertad', 4, 3, 3);
 
 -- --------------------------------------------------------
 
