@@ -8,8 +8,8 @@ from PyQt6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QScrollArea, QFormLayout,
     QComboBox, QDateEdit, QWidget, QFrame, QListView, QMessageBox
 )
-from PyQt6.QtCore import Qt, QDate, QPointF, QEvent
-from PyQt6.QtGui import QPalette, QColor, QPixmap, QPainter, QPen, QPolygonF
+from PyQt6.QtCore import Qt, QDate, QPointF, QEvent, QRegularExpression
+from PyQt6.QtGui import QPalette, QColor, QPixmap, QPainter, QPen, QPolygonF, QRegularExpressionValidator
 
 
 def formatear_digitos_cedula(digitos):
@@ -265,6 +265,85 @@ class DialogoRegistrarDepartamento(QDialog):
             QMessageBox.critical(self, "Error", f"No se pudo registrar el departamento:\n{e}")
 
 
+class DialogoRegistrarEstadoLaboral(QDialog):
+    """Ventana modal para agregar un estado laboral al catálogo existente."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Registrar Estado Laboral")
+        self.setFixedSize(380, 220)
+        self.setPalette(paleta_clara())
+        self.setStyleSheet(ESTILO_VENTANA.replace("__FLECHA__", crear_icono_flecha()))
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        titulo = QLabel("Registrar Estado Laboral")
+        titulo.setStyleSheet("font-size: 16px; font-weight: bold; color: #2c2c2c; background: transparent;")
+        layout.addWidget(titulo)
+
+        card = QFrame()
+        card.setStyleSheet("background-color: #ffffff; border-radius: 12px;")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(15, 15, 15, 15)
+        card_layout.setSpacing(6)
+
+        self.txt_estado = QLineEdit()
+        self.txt_estado.setPlaceholderText("Nombre del nuevo estado laboral")
+        card_layout.addWidget(self.txt_estado)
+        self.lbl_error = QLabel("")
+        self.lbl_error.setStyleSheet("font-size: 11px; font-weight: normal; color: #d32f2f; background: transparent;")
+        card_layout.addWidget(self.lbl_error)
+        layout.addWidget(card)
+
+        botones = QHBoxLayout()
+        botones.addStretch()
+        cancelar = QPushButton("Cancelar")
+        cancelar.setFixedSize(90, 32)
+        cancelar.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancelar.setStyleSheet("QPushButton { background-color: #e0dede; color: #333333; border-radius: 16px; font-weight: bold; border: none; } QPushButton:hover { background-color: #d0d0d0; }")
+        cancelar.clicked.connect(self.reject)
+        botones.addWidget(cancelar)
+
+        guardar = QPushButton("Guardar")
+        guardar.setFixedSize(90, 32)
+        guardar.setCursor(Qt.CursorShape.PointingHandCursor)
+        guardar.setStyleSheet("QPushButton { background-color: #163e7a; color: white; border-radius: 16px; font-weight: bold; border: none; } QPushButton:hover { background-color: #235299; }")
+        guardar.clicked.connect(self.guardar_estado)
+        botones.addWidget(guardar)
+        layout.addLayout(botones)
+
+    def guardar_estado(self):
+        nombre = self.txt_estado.text().strip()
+        if not nombre:
+            self.lbl_error.setText("Este campo es obligatorio.")
+            self.txt_estado.setFocus()
+            return
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if not conexion:
+                QMessageBox.critical(self, "Error de conexión", "No se pudo conectar con la base de datos.")
+                return
+            cursor = conexion.cursor()
+            cursor.execute(
+                "SELECT id_estado_laboral FROM estados_laborales WHERE LOWER(descripcion_estado) = LOWER(%s)",
+                (nombre,)
+            )
+            if cursor.fetchone():
+                self.lbl_error.setText("Ese estado laboral ya existe.")
+                cursor.close()
+                return
+            cursor.execute(
+                "INSERT INTO estados_laborales (descripcion_estado) VALUES (%s)", (nombre,)
+            )
+            conexion.commit()
+            cursor.close()
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo registrar el estado laboral:\\n{e}")
+
+
 class RegistroTrabajadores(QDialog):
     """Ventana modal para el registro y modificación de trabajadores"""
     def __init__(self, titulo="Registrar Trabajador", datos=None, parent=None):
@@ -305,7 +384,7 @@ class RegistroTrabajadores(QDialog):
 
         self.txt_cedula = QLineEdit()
         self.txt_cedula.setPlaceholderText("Ej. 12.345.678")
-        self.txt_cedula.setMaxLength(11)
+        self.txt_cedula.setMaxLength(10)
         # El usuario solo escribe los números: los puntos se colocan automáticamente
         self.txt_cedula.textChanged.connect(self.al_cambiar_cedula)
 
@@ -314,6 +393,13 @@ class RegistroTrabajadores(QDialog):
 
         self.txt_apellidos = QLineEdit()
         self.txt_apellidos.setPlaceholderText("Apellidos completos")
+        validador_nombres = QRegularExpressionValidator(
+            QRegularExpression(r"[\p{L}\p{M} .'-]*"), self
+        )
+        self.txt_nombres.setValidator(validador_nombres)
+        self.txt_apellidos.setValidator(QRegularExpressionValidator(
+            QRegularExpression(r"[\p{L}\p{M} .'-]*"), self
+        ))
 
         self.date_nacimiento = QDateEdit()
         self.date_nacimiento.setCalendarPopup(True)
@@ -365,6 +451,17 @@ class RegistroTrabajadores(QDialog):
         d_layout.addWidget(self.lbl_link_depto)
 
         self.cmb_estado_laboral = QComboBox()
+        self.lbl_link_estado = QLabel('<a href="#" style="color: #163e7a; text-decoration: none;">¿No encuentras el estado laboral? Pulsa aquí</a>')
+        self.lbl_link_estado.setOpenExternalLinks(False)
+        self.lbl_link_estado.linkActivated.connect(self.abrir_registro_estado_laboral)
+        self.lbl_link_estado.setStyleSheet("font-size: 11px; font-weight: normal; color: #163e7a; background: transparent;")
+        contenedor_estado_laboral = QWidget()
+        contenedor_estado_laboral.setStyleSheet("background: transparent;")
+        el_layout = QVBoxLayout(contenedor_estado_laboral)
+        el_layout.setContentsMargins(0, 0, 0, 0)
+        el_layout.setSpacing(4)
+        el_layout.addWidget(self.cmb_estado_laboral)
+        el_layout.addWidget(self.lbl_link_estado)
 
         # Selectores en cascada para la ubicación del centro de votación
         self.cmb_estado_cv = QComboBox()
@@ -384,19 +481,57 @@ class RegistroTrabajadores(QDialog):
         self.cmb_estado_cv.currentIndexChanged.connect(self.cargar_municipios)
         self.cmb_municipio_cv.currentIndexChanged.connect(self.cargar_centros_votacion)
 
-        form_layout.addRow("Cédula:", self.txt_cedula)
-        form_layout.addRow("Nombres:", self.txt_nombres)
-        form_layout.addRow("Apellidos:", self.txt_apellidos)
-        form_layout.addRow("Fecha Nacimiento:", self.date_nacimiento)
-        form_layout.addRow("Teléfono:", self.txt_telefono)
-        form_layout.addRow("Correo:", self.txt_correo)
-        form_layout.addRow("Sexo:", self.cmb_sexo)
-        form_layout.addRow("Dirección:", self.txt_direccion)
-        form_layout.addRow("Departamento:", contenedor_depto)
-        form_layout.addRow("Estado Laboral:", self.cmb_estado_laboral)
-        form_layout.addRow("Estado (Votación):", self.cmb_estado_cv)
-        form_layout.addRow("Municipio (Votación):", self.cmb_municipio_cv)
-        form_layout.addRow("Centro de Votación:", self.cmb_centro_votacion)
+        self.lbl_errores = {}
+        self.campos_validacion = {
+            "cedula": self.txt_cedula, "nombres": self.txt_nombres,
+            "apellidos": self.txt_apellidos, "fecha": self.date_nacimiento,
+            "telefono": self.txt_telefono, "correo": self.txt_correo,
+            "sexo": self.cmb_sexo, "direccion": self.txt_direccion,
+            "departamento": self.cmb_departamento, "estado_laboral": self.cmb_estado_laboral,
+            "estado_cv": self.cmb_estado_cv, "municipio_cv": self.cmb_municipio_cv,
+            "centro_cv": self.cmb_centro_votacion
+        }
+        filas_formulario = [
+            ("Cédula:", "cedula", self.txt_cedula),
+            ("Nombres:", "nombres", self.txt_nombres),
+            ("Apellidos:", "apellidos", self.txt_apellidos),
+            ("Fecha Nacimiento:", "fecha", self.date_nacimiento),
+            ("Teléfono:", "telefono", self.txt_telefono),
+            ("Correo:", "correo", self.txt_correo),
+            ("Sexo:", "sexo", self.cmb_sexo),
+            ("Dirección:", "direccion", self.txt_direccion),
+            ("Departamento:", "departamento", contenedor_depto),
+            ("Estado Laboral:", "estado_laboral", contenedor_estado_laboral),
+            ("Estado (Votación):", "estado_cv", self.cmb_estado_cv),
+            ("Municipio (Votación):", "municipio_cv", self.cmb_municipio_cv),
+            ("Centro de Votación:", "centro_cv", self.cmb_centro_votacion),
+        ]
+        for etiqueta, clave, control in filas_formulario:
+            envoltorio = QWidget()
+            envoltorio.setStyleSheet("background: transparent;")
+            v = QVBoxLayout(envoltorio)
+            v.setContentsMargins(0, 0, 0, 0)
+            v.setSpacing(2)
+            v.addWidget(control)
+            error = QLabel("")
+            error.setStyleSheet("font-size: 11px; font-weight: normal; color: #d32f2f; background: transparent;")
+            error.setWordWrap(True)
+            error.hide()
+            self.lbl_errores[clave] = error
+            v.addWidget(error)
+            form_layout.addRow(etiqueta, envoltorio)
+
+        # Al editar se validan los campos de la misma manera que al crear.
+        self.txt_cedula.textChanged.connect(lambda *_: self._limpiar_error_si_corregido("cedula"))
+        for clave, control in self.campos_validacion.items():
+            if clave == "cedula":
+                continue
+            if isinstance(control, QLineEdit):
+                control.textChanged.connect(lambda _, k=clave: self._limpiar_error_si_corregido(k))
+            elif isinstance(control, QComboBox):
+                control.currentIndexChanged.connect(lambda _, k=clave: self._limpiar_error_si_corregido(k))
+            elif isinstance(control, QDateEdit):
+                control.dateChanged.connect(lambda _, k=clave: self._limpiar_error_si_corregido(k))
 
         scroll.setWidget(contenedor_form)
         layout_card.addWidget(scroll)
@@ -448,7 +583,7 @@ class RegistroTrabajadores(QDialog):
         """Da formato de miles a la cédula mientras se escribe, conservando la posición del cursor"""
         posicion = self.txt_cedula.cursorPosition()
         digitos_antes = sum(c.isdigit() for c in texto[:posicion])
-        digitos = "".join(c for c in texto if c.isdigit())[:9]
+        digitos = "".join(c for c in texto if c.isdigit())[:8]
         formateado = formatear_digitos_cedula(digitos)
         if formateado == texto:
             return
@@ -538,6 +673,101 @@ class RegistroTrabajadores(QDialog):
             self._seleccionar(self.cmb_municipio_cv, None, datos.get("municipio_cv"))
             self._seleccionar(self.cmb_centro_votacion, None, datos.get("centro_cv"))
 
+    def _mostrar_error(self, clave, mensaje):
+        etiqueta = self.lbl_errores[clave]
+        etiqueta.setText(mensaje)
+        etiqueta.show()
+
+    def _limpiar_error_si_corregido(self, clave):
+        control = self.campos_validacion[clave]
+        if clave == "cedula":
+            correcto = 7 <= len(re.sub(r"\D", "", control.text())) <= 8
+        elif clave in ("nombres", "apellidos", "direccion"):
+            correcto = bool(control.text().strip())
+        elif clave == "telefono":
+            digitos = re.sub(r"\D", "", control.text())
+            correcto = 7 <= len(digitos) <= 15
+        elif clave == "correo":
+            # El correo puede tener cualquier formato; solo se exige que no esté vacío.
+            correcto = bool(control.text().strip())
+        elif isinstance(control, QComboBox):
+            correcto = control.currentIndex() >= 0
+        elif isinstance(control, QDateEdit):
+            correcto = control.date() != control.minimumDate()
+        else:
+            correcto = False
+        if correcto:
+            self.lbl_errores[clave].clear()
+            self.lbl_errores[clave].hide()
+
+    def validar_formulario(self):
+        for etiqueta in self.lbl_errores.values():
+            etiqueta.clear()
+            etiqueta.hide()
+
+        errores = {}
+        cedula = re.sub(r"\D", "", self.txt_cedula.text())
+        if not 7 <= len(cedula) <= 8:
+            errores["cedula"] = "La cédula debe contener entre 7 y 8 números."
+        if not self.txt_nombres.text().strip():
+            errores["nombres"] = "Ingrese los nombres."
+        if not self.txt_apellidos.text().strip():
+            errores["apellidos"] = "Ingrese los apellidos."
+        if self.date_nacimiento.date() == self.date_nacimiento.minimumDate():
+            errores["fecha"] = "Seleccione la fecha de nacimiento."
+        telefono = self.txt_telefono.text().strip()
+        digitos_telefono = re.sub(r"\D", "", telefono)
+        if not telefono:
+            errores["telefono"] = "Ingrese el teléfono."
+        elif not 7 <= len(digitos_telefono) <= 15:
+            errores["telefono"] = "Ingrese un teléfono válido (7 a 15 números)."
+        correo = self.txt_correo.text().strip()
+        if not correo:
+            errores["correo"] = "Ingrese el correo electrónico."
+        if self.cmb_sexo.currentIndex() < 0:
+            errores["sexo"] = "Seleccione el sexo."
+        if not self.txt_direccion.text().strip():
+            errores["direccion"] = "Ingrese la dirección."
+        if self.cmb_departamento.currentData() is None:
+            errores["departamento"] = "Seleccione un departamento."
+        if self.cmb_estado_laboral.currentData() is None:
+            errores["estado_laboral"] = "Seleccione el estado laboral."
+        if self.cmb_estado_cv.currentData() is None:
+            errores["estado_cv"] = "Seleccione el estado."
+        if self.cmb_municipio_cv.currentData() is None:
+            errores["municipio_cv"] = "Seleccione el municipio."
+        if self.cmb_centro_votacion.currentData() is None:
+            errores["centro_cv"] = "Seleccione el centro de votación."
+
+        for clave, mensaje in errores.items():
+            self._mostrar_error(clave, mensaje)
+        if errores:
+            self.campos_validacion[next(iter(errores))].setFocus()
+            return False
+        return True
+
+    def abrir_registro_estado_laboral(self):
+        dialogo = DialogoRegistrarEstadoLaboral(self)
+        if dialogo.exec() == QDialog.DialogCode.Accepted:
+            self.cargar_estados_laborales()
+            nuevo = dialogo.txt_estado.text().strip()
+            self.cmb_estado_laboral.setCurrentIndex(self.cmb_estado_laboral.findText(nuevo))
+
+    def cargar_estados_laborales(self):
+        self.cmb_estado_laboral.clear()
+        try:
+            db = GestorBD()
+            conexion = db.obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor(dictionary=True)
+                cursor.execute("SELECT id_estado_laboral, descripcion_estado FROM estados_laborales ORDER BY descripcion_estado")
+                for estado in cursor.fetchall():
+                    self.cmb_estado_laboral.addItem(estado["descripcion_estado"], estado["id_estado_laboral"])
+                self.cmb_estado_laboral.setCurrentIndex(-1)
+                cursor.close()
+        except Exception as e:
+            print(f"Error al cargar estados laborales: {e}")
+
     def abrir_registro_departamento(self):
         """Abre la ventana modal para registrar un nuevo departamento y actualiza el ComboBox"""
         dialogo = DialogoRegistrarDepartamento(self)
@@ -581,19 +811,17 @@ class RegistroTrabajadores(QDialog):
                 cursor = conexion.cursor(dictionary=True)
 
                 # Estados Laborales
-                cursor.execute("SELECT id_estado_laboral, descripcion_estado FROM estados_laborales")
-                for el in cursor.fetchall():
-                    self.cmb_estado_laboral.addItem(el["descripcion_estado"], el["id_estado_laboral"])
-                self.cmb_estado_laboral.setCurrentIndex(-1)
-
-                # Estados Geográficos
+                cursor.close()
+                self.cargar_estados_laborales()
+                cursor = conexion.cursor(dictionary=True)
                 cursor.execute("SELECT id_estado, nombre_estado FROM estados")
                 estados = cursor.fetchall()
                 for est in estados:
                     self.cmb_estado_cv.addItem(est["nombre_estado"], est["id_estado"])
                 self.cmb_estado_cv.setCurrentIndex(-1)
-
                 cursor.close()
+                return
+
         except Exception as e:
             print(f"Error al cargar datos maestros: {e}")
 
@@ -663,28 +891,7 @@ class RegistroTrabajadores(QDialog):
         id_estado_laboral = self.cmb_estado_laboral.currentData()
         id_centro_votacion = self.cmb_centro_votacion.currentData()
 
-        if not cedula or not nombres or not apellidos:
-            QMessageBox.warning(self, "Campos incompletos", "Por favor, complete la cédula, nombres y apellidos.")
-            return
-
-        if self.date_nacimiento.date() == self.date_nacimiento.minimumDate():
-            QMessageBox.warning(self, "Fecha de nacimiento", "Por favor, seleccione la fecha de nacimiento.")
-            return
-
-        if self.cmb_sexo.currentIndex() < 0:
-            QMessageBox.warning(self, "Sexo", "Por favor, seleccione el sexo.")
-            return
-
-        if id_departamento is None:
-            QMessageBox.warning(self, "Departamento", "Por favor, seleccione un departamento.")
-            return
-
-        if id_estado_laboral is None:
-            QMessageBox.warning(self, "Estado laboral", "Por favor, seleccione el estado laboral.")
-            return
-
-        if not id_centro_votacion:
-            QMessageBox.warning(self, "Centro de Votación", "Por favor, seleccione un centro de votación válido.")
+        if not self.validar_formulario():
             return
 
         try:

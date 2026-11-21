@@ -7,8 +7,9 @@ from datetime import date, datetime
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLineEdit,
-    QPushButton, QLabel, QScrollArea, QComboBox, QListView, QSizePolicy
+    QApplication, QDialog, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLineEdit,
+    QPushButton, QLabel, QScrollArea, QComboBox, QListView, QSizePolicy,
+    QMessageBox
 )
 from PyQt6.QtCore import Qt, QPointF, pyqtSignal
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QPolygonF, QIcon
@@ -513,10 +514,15 @@ class VentanaOperativas(QWidget):
         self.cedula_seleccionada = None
 
         layout_raiz = QHBoxLayout(self)
-        layout_raiz.setContentsMargins(20, 20, 20, 20)
-        layout_raiz.setSpacing(20)
+        # Márgenes y separación compactos para reservar espacio al panel lateral.
+        layout_raiz.setContentsMargins(12, 12, 12, 12)
+        layout_raiz.setSpacing(12)
 
         contenedor_izq = QWidget()
+        contenedor_izq.setMinimumWidth(0)
+        contenedor_izq.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         contenedor_izq.setStyleSheet("background: transparent;")
         layout_principal = QVBoxLayout(contenedor_izq)
         layout_principal.setContentsMargins(0, 0, 0, 0)
@@ -716,10 +722,17 @@ class VentanaOperativas(QWidget):
         self.layout_filas.insertWidget(0, self.lbl_vacio)
 
         layout_principal.addWidget(panel, stretch=1)
-        layout_raiz.addWidget(contenedor_izq, stretch=3)
+        layout_raiz.addWidget(contenedor_izq, stretch=1)
 
         self.panel_historial = self._crear_panel_historial()
-        layout_raiz.addWidget(self.panel_historial)
+        # El panel conserva un ancho controlado y no empuja su borde derecho
+        # fuera del área visible de la ventana.
+        self.panel_historial.setMinimumWidth(260)
+        self.panel_historial.setMaximumWidth(290)
+        self.panel_historial.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
+        layout_raiz.addWidget(self.panel_historial, stretch=0)
         self.panel_historial.hide()
 
         preparar_base_de_datos()
@@ -876,7 +889,11 @@ class VentanaOperativas(QWidget):
     def _crear_panel_historial(self):
         panel = QFrame()
         panel.setObjectName("panelHistorial")
-        panel.setFixedWidth(330)
+        panel.setMinimumWidth(260)
+        panel.setMaximumWidth(290)
+        panel.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
         panel.setStyleSheet("""
             QFrame#panelHistorial {
                 background-color: #ffffff;
@@ -1102,36 +1119,53 @@ class VentanaOperativas(QWidget):
 
     # ==================== ACCIONES ====================
     def nueva_novedad(self):
-        """Abre la ventana modal para registrar una novedad sin cerrar la ventana principal"""
-        dialogo = VentanaRegistroOperativa(parent=None)
-        if dialogo.exec() == QDialog.DialogCode.Accepted:
-            self.txt_buscar.blockSignals(True)
-            self.txt_buscar.clear()
-            self.txt_buscar.blockSignals(False)
-            if self.accion_lupa is not None:
-                self.accion_lupa.setVisible(True)
+        """Abre la ventana modal para registrar una novedad sin cerrar la ventana principal."""
+        try:
+            # Asociar el diálogo a esta ventana evita que quede desligado de su contenedor.
+            dialogo = VentanaRegistroOperativa(parent=self)
+            resultado = dialogo.exec()
 
-            self.cmb_tipo.blockSignals(True)
-            self.cmb_tipo.setCurrentIndex(0)
-            self.cmb_tipo.blockSignals(False)
+            if resultado == QDialog.DialogCode.Accepted:
+                self.txt_buscar.blockSignals(True)
+                self.txt_buscar.clear()
+                self.txt_buscar.blockSignals(False)
+                if self.accion_lupa is not None:
+                    self.accion_lupa.setVisible(True)
 
-            self.cmb_estado.blockSignals(True)
-            self.cmb_estado.setCurrentIndex(0)
-            self.cmb_estado.blockSignals(False)
-            for tarjeta in self.tarjetas.values():
-                tarjeta.set_activa(False)
+                self.cmb_tipo.blockSignals(True)
+                self.cmb_tipo.setCurrentIndex(0)
+                self.cmb_tipo.blockSignals(False)
 
-            self.cargar_datos()
-            if dialogo.cedula_resultado is not None:
-                self.seleccionar_trabajador({"cedula": dialogo.cedula_resultado})
+                self.cmb_estado.blockSignals(True)
+                self.cmb_estado.setCurrentIndex(0)
+                self.cmb_estado.blockSignals(False)
+                for tarjeta in self.tarjetas.values():
+                    tarjeta.set_activa(False)
+
+                self.cargar_datos()
+                if dialogo.cedula_resultado is not None:
+                    self.seleccionar_trabajador({"cedula": dialogo.cedula_resultado})
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error al abrir el registro",
+                f"No se pudo abrir o completar el registro de la novedad.\\n\\nDetalle: {e}"
+            )
 
     def finalizar_novedad(self, datos):
-        """Abre la ventana modal para poner la fecha de fin a la novedad indicada"""
-        dialogo = VentanaFinalizarNovedad(datos, parent=None)
-        if dialogo.exec() == QDialog.DialogCode.Accepted:
-            self.cargar_datos()
-            if dialogo.cedula_resultado is not None and self.cedula_seleccionada == dialogo.cedula_resultado:
-                self.mostrar_historial(dialogo.cedula_resultado)
+        """Abre la ventana modal para poner la fecha de fin a la novedad indicada."""
+        try:
+            dialogo = VentanaFinalizarNovedad(datos, parent=self)
+            resultado = dialogo.exec()
+            if resultado == QDialog.DialogCode.Accepted:
+                self.cargar_datos()
+                if (dialogo.cedula_resultado is not None
+                        and self.cedula_seleccionada == dialogo.cedula_resultado):
+                    self.mostrar_historial(dialogo.cedula_resultado)
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error al finalizar la novedad",
+                f"No se pudo completar la operación.\\n\\nDetalle: {e}"
+            )
 
 
 if __name__ == "__main__":

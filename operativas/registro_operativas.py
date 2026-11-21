@@ -407,6 +407,9 @@ class VentanaRegistroOperativa(QDialog):
         completador = self.cmb_trabajador.completer()
         completador.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         completador.setFilterMode(Qt.MatchFlag.MatchContains)
+        # Crear explícitamente la vista emergente antes de aplicarle estilos.
+        # popup() puede devolver None si la vista aún no ha sido creada.
+        completador.setPopup(QListView())
         completador.popup().setStyleSheet("""
             QListView { background-color: #ffffff; color: #333333; border: 1px solid #dcdcdc; outline: none;
                         font-size: 13px; selection-background-color: #e6f0ff; selection-color: #0833a2; }

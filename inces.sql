@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 19-11-2026 a las 04:17:48
+-- Tiempo de generación: 21-11-2026 a las 04:22:23
 -- Versión del servidor: 10.11.16-MariaDB
 -- Versión de PHP: 8.3.36
 
@@ -54,7 +54,8 @@ CREATE TABLE `centros_votacion` (
 
 INSERT INTO `centros_votacion` (`id_centro_votacion`, `nombre_centro`, `direccion_centro`, `id_parroquia_fk`) VALUES
 (2, 'Liceo Miguel José Sanz', 'Avenida Bolívar , diagonal a la Redoma Juana Ramírez \"La Avanzadora\" y al lado de la Casa de la Cultura, en el centro de Maturín', 1),
-(3, 'Escuela Técnica \"Eloy Palacios Cabello\"', 'Calle Bermúdez, entre Calles 9 y 10. Cerca del Museo Mateo Manaure, laPlaza Bolívar de Maturín y la Iglesia San Simón. En el centro de Maturín', 1);
+(3, 'Escuela Técnica \"Eloy Palacios Cabello\"', 'Calle Bermúdez, entre Calles 9 y 10. Cerca del Museo Mateo Manaure, laPlaza Bolívar de Maturín y la Iglesia San Simón. En el centro de Maturín', 1),
+(4, 'upt ludovico', 'bello monte', 2);
 
 -- --------------------------------------------------------
 
@@ -122,8 +123,19 @@ INSERT INTO `estados_laborales` (`id_estado_laboral`, `descripcion_estado`) VALU
 
 CREATE TABLE `incidencias` (
   `id_incidencia` int(11) NOT NULL,
-  `tipo_incidencia` varchar(100) NOT NULL
+  `tipo_incidencia` varchar(100) NOT NULL,
+  `color` varchar(20) NOT NULL DEFAULT 'gris'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `incidencias`
+--
+
+INSERT INTO `incidencias` (`id_incidencia`, `tipo_incidencia`, `color`) VALUES
+(1, 'Reposo médico', 'rojo'),
+(2, 'Vacaciones', 'verde'),
+(3, 'Permiso', 'ambar'),
+(4, 'Comisión de servicio', 'morado');
 
 -- --------------------------------------------------------
 
@@ -142,7 +154,8 @@ CREATE TABLE `municipios` (
 --
 
 INSERT INTO `municipios` (`id_municipio`, `nombre_municipio`, `id_estado_fk`) VALUES
-(5, 'Maturin', 2);
+(5, 'Maturin', 2),
+(6, 'caripito', 2);
 
 -- --------------------------------------------------------
 
@@ -155,9 +168,18 @@ CREATE TABLE `novedades_operativas` (
   `cedula_trabajador_fk` int(11) NOT NULL,
   `id_incidencia_fk` int(11) NOT NULL,
   `fecha_inicio` date NOT NULL,
-  `fecha_fin` date NOT NULL,
+  `fecha_fin` date DEFAULT NULL,
   `justificacion` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `novedades_operativas`
+--
+
+INSERT INTO `novedades_operativas` (`id_novedad`, `cedula_trabajador_fk`, `id_incidencia_fk`, `fecha_inicio`, `fecha_fin`, `justificacion`) VALUES
+(1, 31776780, 2, '2026-11-20', '2026-11-27', 'el gotdito se tomo unas vacaciones para seguir comiendo'),
+(2, 32270636, 1, '2026-11-20', NULL, 'esta mal mal'),
+(3, 32753323, 3, '2026-11-20', NULL, 'el pana esta de permiso ps');
 
 -- --------------------------------------------------------
 
@@ -176,7 +198,8 @@ CREATE TABLE `parroquias` (
 --
 
 INSERT INTO `parroquias` (`id_parroquia`, `nombre_parroquia`, `id_municipio_fk`) VALUES
-(1, 'San Simon', 5);
+(1, 'San Simon', 5),
+(2, 'Bello monte', 6);
 
 -- --------------------------------------------------------
 
@@ -247,6 +270,8 @@ CREATE TABLE `trabajadores` (
 --
 
 INSERT INTO `trabajadores` (`cedula_trabajador`, `nombres`, `apellidos`, `fecha_nacimiento`, `telefono`, `correo`, `sexo`, `direccion`, `id_departamento_fk`, `id_estado_laboral_fk`, `id_centro_votacion_fk`) VALUES
+(123, 'doris', 'farias5', '1999-12-30', '04264840997', 'dorisisidra8@gmail.com', 'Femenino', 'fr', 3, 3, 4),
+(12345678, 'juan', 'andres', '1900-01-02', '123-12345', 'juansito@gmail.com', 'Masculino', 'por ahi', 4, 2, 2),
 (31776780, 'Ángel', 'Malavé', '2006-11-18', '0412-1234567', 'angel@gmail.com', 'Masculino', 'las Cocuizas', 4, 2, 2),
 (32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'Masculino', 'Invasión de la Puente, Calle 10', 4, 2, 3),
 (32753323, 'Jesús', 'López', '2006-11-18', '0412-1234567', 'jesus@gmail.com', 'Masculino', 'El Elevado de Maturín', 3, 2, 2),
@@ -273,9 +298,9 @@ CREATE TABLE `usuarios` (
 --
 
 INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contraseña`, `cedula_trabajador_fk`, `id_rol_fk`, `ultimo_acceso`, `bloqueado`) VALUES
-(1, 'Rolando', '1234', 32270636, 1, '2026-11-14 23:20:11', 0),
-(2, 'Jesus', '1234', 32753323, 2, '2026-11-14 13:09:45', 0),
-(3, 'Angel', '1234', 31776780, 3, '2026-11-14 13:26:15', 0);
+(1, 'Rolando', '1234', 32270636, 1, '2026-11-19 11:17:39', 0),
+(2, 'Jesus', '1234', 32753323, 2, '2026-11-19 11:16:13', 0),
+(3, 'Angel', '1234', 31776780, 3, '2026-11-19 11:16:40', 0);
 
 --
 -- Índices para tablas volcadas
@@ -384,7 +409,7 @@ ALTER TABLE `asistencias`
 -- AUTO_INCREMENT de la tabla `centros_votacion`
 --
 ALTER TABLE `centros_votacion`
-  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `departamentos`
@@ -408,25 +433,25 @@ ALTER TABLE `estados_laborales`
 -- AUTO_INCREMENT de la tabla `incidencias`
 --
 ALTER TABLE `incidencias`
-  MODIFY `id_incidencia` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_incidencia` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT de la tabla `municipios`
 --
 ALTER TABLE `municipios`
-  MODIFY `id_municipio` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id_municipio` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT de la tabla `novedades_operativas`
 --
 ALTER TABLE `novedades_operativas`
-  MODIFY `id_novedad` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_novedad` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `parroquias`
 --
 ALTER TABLE `parroquias`
-  MODIFY `id_parroquia` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_parroquia` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `roles`

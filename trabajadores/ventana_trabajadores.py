@@ -540,10 +540,47 @@ class VentanaTrabajadores(QWidget):
                 trabajadores = cursor.fetchall()
                 cursor.close()
 
-                for t in trabajadores:
-                    fila = FilaTrabajador(t)
+                trabajadores_normales = [
+                    t for t in trabajadores
+                    if "retirado" not in str(t.get("estado_laboral", "")).lower()
+                ]
+                trabajadores_retirados = [
+                    t for t in trabajadores
+                    if "retirado" in str(t.get("estado_laboral", "")).lower()
+                ]
+
+                def agregar_fila(trabajador):
+                    fila = FilaTrabajador(trabajador)
                     fila.cliqueado.connect(self.mostrar_detalles_trabajador)
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
+
+                for t in trabajadores_normales:
+                    agregar_fila(t)
+
+                if trabajadores_retirados:
+                    separador_retirados = QWidget()
+                    separador_retirados.setStyleSheet("background: transparent;")
+                    sep_layout = QHBoxLayout(separador_retirados)
+                    sep_layout.setContentsMargins(4, 14, 4, 5)
+                    sep_layout.setSpacing(10)
+                    linea_izq = QFrame()
+                    linea_izq.setFixedHeight(1)
+                    linea_izq.setStyleSheet("background-color: #dfe3e9; border: none;")
+                    titulo_retirados = QLabel("Trabajadores retirados")
+                    titulo_retirados.setStyleSheet(
+                        "font-size: 11px; font-weight: bold; color: #8b929d; "
+                        "background: transparent; border: none;"
+                    )
+                    linea_der = QFrame()
+                    linea_der.setFixedHeight(1)
+                    linea_der.setStyleSheet("background-color: #dfe3e9; border: none;")
+                    sep_layout.addWidget(linea_izq, 1)
+                    sep_layout.addWidget(titulo_retirados)
+                    sep_layout.addWidget(linea_der, 1)
+                    self.layout_filas.insertWidget(self.layout_filas.count() - 1, separador_retirados)
+
+                    for t in trabajadores_retirados:
+                        agregar_fila(t)
 
                 # Si el trabajador seleccionado sigue en la lista, se mantiene marcado y se refrescan sus datos
                 if self.trabajador_seleccionado is not None:
