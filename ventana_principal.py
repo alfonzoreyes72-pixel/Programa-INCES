@@ -205,7 +205,7 @@ class VentanaPrincipal(QMainWindow):
         
         # ==================== ÁREA PRINCIPAL (DERECHA) ====================
         self.stacked_widget = QStackedWidget()
-        self.stacked_widget.setStyleSheet("background-color: #bfbdbe;")
+        self.stacked_widget.setStyleSheet("background-color: #ebebeb;")
 
         self.pagina_inicio = VentanaInicio()
         self.pagina_perfil = VentanaPerfil()
