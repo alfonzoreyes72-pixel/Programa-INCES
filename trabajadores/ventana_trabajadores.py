@@ -288,7 +288,7 @@ class VentanaTrabajadores(QWidget):
         controles_layout.addStretch()
 
         self.txt_buscar = QLineEdit()
-        self.txt_buscar.setPlaceholderText("🔍 Buscar por cédula o nombre...")
+        self.txt_buscar.setPlaceholderText("Buscar por cédula o nombre...")
         self.txt_buscar.setFixedSize(240, 36)
         self.txt_buscar.setStyleSheet("""
             QLineEdit {
@@ -303,6 +303,13 @@ class VentanaTrabajadores(QWidget):
             }
             QLineEdit:focus { border: 2px solid #0833a2; }
         """)
+        pixmap_lupa = cargar_pixmap_svg("iconolupa", 16)
+        self.accion_lupa = None
+        if pixmap_lupa:
+            self.accion_lupa = self.txt_buscar.addAction(
+                QIcon(pixmap_lupa), QLineEdit.ActionPosition.LeadingPosition
+            )
+        self.txt_buscar.textChanged.connect(self.al_escribir_busqueda)
         self.txt_buscar.textChanged.connect(lambda: self.cargar_trabajadores_desde_bd())
         controles_layout.addWidget(self.txt_buscar)
 
@@ -467,6 +474,10 @@ class VentanaTrabajadores(QWidget):
         except Exception as e:
             print(f"Error al actualizar métricas: {e}")
 
+    def al_escribir_busqueda(self, texto):
+        if self.accion_lupa is not None:
+            self.accion_lupa.setVisible(not texto)
+
     def cargar_trabajadores_desde_bd(self):
         while self.layout_filas.count() > 1:
             item = self.layout_filas.takeAt(0)
@@ -489,6 +500,25 @@ class VentanaTrabajadores(QWidget):
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
                 """)
                 conexion.commit()
+
+                cursor.execute("SELECT COUNT(*) AS total FROM trabajadores")
+                res_conteo = cursor.fetchone()
+                total_en_bd = res_conteo["total"] if res_conteo else 0
+
+                if total_en_bd == 0:
+                    cursor.close()
+                    lbl_vacio = QLabel(
+                        "En este momento no hay trabajadores registrados. Presione Agregar para registrar uno."
+                    )
+                    lbl_vacio.setWordWrap(True)
+                    lbl_vacio.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    lbl_vacio.setStyleSheet(
+                        "font-size: 13px; font-weight: bold; color: #777777; "
+                        "border: none; background: transparent; padding: 30px;"
+                    )
+                    self.layout_filas.insertWidget(0, lbl_vacio)
+                    self.actualizar_metricas_globales()
+                    return
 
                 sql = """
                     SELECT 

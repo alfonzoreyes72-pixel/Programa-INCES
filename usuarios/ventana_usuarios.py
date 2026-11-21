@@ -1,11 +1,62 @@
 import re
 import sys
+import os
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
     QLineEdit, QPushButton, QLabel, QScrollArea, QSizePolicy,
     QMenu, QWidgetAction
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint
+from PyQt6.QtGui import QIcon, QPixmap, QPainter
+from PyQt6.QtSvg import QSvgRenderer
+
+
+
+# ==================== ICONOS (rutas autocalculables) ====================
+# Misma búsqueda relativa de la ventana de votación: carpeta imagenes junto
+# al módulo o en el directorio padre.
+_DIRECTORIO = os.path.dirname(os.path.abspath(__file__))
+CARPETAS_IMAGENES = [
+    os.path.join(_DIRECTORIO, '..', 'imagenes'),
+    os.path.join(_DIRECTORIO, 'imagenes'),
+]
+
+
+def _clave_nombre(texto):
+    return re.sub(r"[^a-z0-9]", "", os.path.splitext(str(texto))[0].lower())
+
+
+def buscar_icono(clave):
+    for carpeta in CARPETAS_IMAGENES:
+        carpeta = os.path.abspath(carpeta)
+        if not os.path.isdir(carpeta):
+            continue
+        for archivo in os.listdir(carpeta):
+            if archivo.lower().endswith(".svg") and _clave_nombre(archivo) == clave:
+                return os.path.join(carpeta, archivo)
+    return None
+
+
+def cargar_pixmap_svg(clave, alto):
+    ruta = buscar_icono(clave)
+    if not ruta:
+        return None
+    renderer = QSvgRenderer(ruta)
+    if not renderer.isValid():
+        return None
+    tam = renderer.defaultSize()
+    proporcion = tam.width() / tam.height() if tam.height() else 1
+    escala = 2
+    alto_px = int(alto * escala)
+    ancho_px = max(1, int(round(alto_px * proporcion)))
+    pixmap = QPixmap(ancho_px, alto_px)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    renderer.render(painter)
+    painter.end()
+    pixmap.setDevicePixelRatio(escala)
+    return pixmap
+
 
 # Importación del gestor de base de datos
 try:
@@ -372,7 +423,7 @@ class VentanaUsuarios(QWidget):
         controles_layout.setSpacing(10)
 
         self.txt_buscar = QLineEdit()
-        self.txt_buscar.setPlaceholderText("🔍 Buscar por usuario o trabajador...")
+        self.txt_buscar.setPlaceholderText("Buscar por usuario o trabajador...")
         self.txt_buscar.setFixedSize(280, 36)
         self.txt_buscar.setStyleSheet("""
             QLineEdit {
@@ -387,6 +438,13 @@ class VentanaUsuarios(QWidget):
             }
             QLineEdit:focus { border: 2px solid #0833a2; }
         """)
+        pixmap_lupa = cargar_pixmap_svg("iconolupa", 16)
+        self.accion_lupa = None
+        if pixmap_lupa:
+            self.accion_lupa = self.txt_buscar.addAction(
+                QIcon(pixmap_lupa), QLineEdit.ActionPosition.LeadingPosition
+            )
+        self.txt_buscar.textChanged.connect(self.al_escribir_busqueda)
         self.txt_buscar.textChanged.connect(lambda: self.cargar_usuarios_desde_bd())
         controles_layout.addWidget(self.txt_buscar)
         controles_layout.addStretch()
@@ -520,6 +578,10 @@ class VentanaUsuarios(QWidget):
                 cursor.close()
         except Exception as e:
             print(f"Error al actualizar métricas de usuarios: {e}")
+
+    def al_escribir_busqueda(self, texto):
+        if self.accion_lupa is not None:
+            self.accion_lupa.setVisible(not texto)
 
     def cargar_usuarios_desde_bd(self):
         while self.layout_filas.count() > 1:
