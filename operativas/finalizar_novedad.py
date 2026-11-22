@@ -2,6 +2,7 @@ import sys
 import os
 import tempfile
 from datetime import date, datetime
+from html import escape
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
@@ -210,9 +211,11 @@ class VentanaFinalizarNovedad(QDialog):
         fila_tipo = QHBoxLayout()
         lbl_tipo = QLabel(str(datos.get("tipo", "N/D")))
         lbl_tipo.setTextFormat(Qt.TextFormat.PlainText)
+        lbl_tipo.setFixedHeight(28)
+        lbl_tipo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_tipo.setStyleSheet(
             f"font-size: 12px; font-weight: bold; color: {texto_tipo}; background-color: {fondo_tipo};"
-            "border: none; border-radius: 11px; padding: 4px 12px;"
+            f"border: 1.5px solid {texto_tipo}; border-radius: 14px; padding: 0px 14px;"
         )
         fila_tipo.addWidget(lbl_tipo)
         fila_tipo.addStretch()
@@ -337,6 +340,8 @@ class VentanaFinalizarNovedad(QDialog):
 
 
 if __name__ == "__main__":
+    # Al ejecutar este archivo solo se abre con datos de prueba y en modo prueba:
+    # se puede probar toda la ventana sin escribir nada en la base de datos real.
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setPalette(paleta_clara())

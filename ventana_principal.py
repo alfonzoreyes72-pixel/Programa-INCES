@@ -1,7 +1,9 @@
 import sys
 import os
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
-                            QGraphicsDropShadowEffect, QStackedWidget)
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
+    QPushButton, QLabel, QGraphicsDropShadowEffect, QStackedWidget
+)
 from PyQt6.QtGui import QColor, QPixmap, QIcon
 from PyQt6.QtCore import Qt, QTimer
 
@@ -17,38 +19,37 @@ from usuarios.ventana_privilegios import obtener_permisos
 from usuarios.ventana_acceso import AvisoCuentaInhabilitada, MENSAJE_CUENTA_INHABILITADA
 from database import GestorBD
 
+
 class VentanaPrincipal(QMainWindow):
     def __init__(self, rol="Administrador", ventana_login=None, id_usuario=None):
         super().__init__()
-        self.ventana_login = ventana_login  # Guardamos la referencia del login oculto
-        self.cerrando_sesion = False        # Bandera para saber si se cerró sesión o se usó la "X"
-        self.menu_expandido = True          # Estado inicial del menú lateral
-        self.rol_usuario = rol              # Rol recibido desde el login
-        self.id_usuario = id_usuario        # Id del usuario que inició sesión (para sus privilegios)
-        
+        self.ventana_login = ventana_login
+        self.cerrando_sesion = False
+        self.estado_sesion_actualizado = False
+        self.menu_expandido = True
+        self.rol_usuario = rol
+        self.id_usuario = id_usuario
+
         self.setWindowTitle("Sistema - Ventana Completa")
-        
-        # Widget central de la ventana
+
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        
-        # Layout principal horizontal (divide la pantalla en menú lateral y área de contenido)
+
         main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-        
+
         # ==================== MENÚ LATERAL IZQUIERDO ====================
         self.sidebar = QWidget()
         self.sidebar.setStyleSheet("background-color: #163e7a;")
-        self.sidebar.setFixedWidth(260)  # Ancho fijo para el menú lateral
+        self.sidebar.setFixedWidth(260)
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(15, 20, 15, 20)
         sidebar_layout.setSpacing(12)
-        
-        # --- ENCABEZADO DEL SIDEBAR (Botón hamburguesa + Logo institucional) ---
+
         header_menu_layout = QHBoxLayout()
         header_menu_layout.setSpacing(10)
-        
+
         self.btn_toggle = QPushButton("☰")
         self.btn_toggle.setFixedSize(40, 40)
         self.btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -67,21 +68,22 @@ class VentanaPrincipal(QMainWindow):
         """)
         self.btn_toggle.clicked.connect(self.toggle_sidebar)
         header_menu_layout.addWidget(self.btn_toggle)
-        
+
         self.label_logo_sidebar = QLabel()
         directorio = os.path.dirname(__file__)
         ruta_logo = os.path.join(directorio, 'imagenes', 'INCES Sede Monagas.svg')
         if not os.path.exists(ruta_logo):
             ruta_logo = os.path.join(directorio, 'imagenes', 'logo inces.png')
-            
+
         pixmap = QPixmap(ruta_logo)
-        self.label_logo_sidebar.setPixmap(pixmap.scaled(140, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        self.label_logo_sidebar.setPixmap(
+            pixmap.scaled(140, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        )
         header_menu_layout.addWidget(self.label_logo_sidebar)
-        
+
         sidebar_layout.addLayout(header_menu_layout)
         sidebar_layout.addSpacing(10)
-        
-        # Estilo común para los botones del menú lateral
+
         estilo_boton = """
             QPushButton {
                 background-color: transparent;
@@ -103,7 +105,6 @@ class VentanaPrincipal(QMainWindow):
             }
         """
 
-        # Creación individual de los botones del menú lateral
         self.btn_inicio = QPushButton("  Inicio")
         self.btn_inicio.setStyleSheet(estilo_boton)
         self.btn_inicio.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-inicio.svg')))
@@ -111,21 +112,21 @@ class VentanaPrincipal(QMainWindow):
         self.btn_inicio.setChecked(True)
         sidebar_layout.addWidget(self.btn_inicio)
         self.btn_inicio.clicked.connect(lambda: self.cambiar_pagina(0, self.btn_inicio))
-        
+
         self.btn_perfil = QPushButton("  Perfil")
         self.btn_perfil.setStyleSheet(estilo_boton)
         self.btn_perfil.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-perfil.svg')))
         self.btn_perfil.setCheckable(True)
         sidebar_layout.addWidget(self.btn_perfil)
         self.btn_perfil.clicked.connect(lambda: self.cambiar_pagina(1, self.btn_perfil))
-        
+
         self.btn_usuarios = QPushButton("  Usuarios")
         self.btn_usuarios.setStyleSheet(estilo_boton)
         self.btn_usuarios.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-usuarios.svg')))
         self.btn_usuarios.setCheckable(True)
         sidebar_layout.addWidget(self.btn_usuarios)
         self.btn_usuarios.clicked.connect(lambda: self.cambiar_pagina(2, self.btn_usuarios))
-        
+
         self.btn_trabajadores = QPushButton("  Trabajadores")
         self.btn_trabajadores.setStyleSheet(estilo_boton)
         self.btn_trabajadores.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-trabajadores.svg')))
@@ -139,21 +140,21 @@ class VentanaPrincipal(QMainWindow):
         self.btn_votacion.setCheckable(True)
         sidebar_layout.addWidget(self.btn_votacion)
         self.btn_votacion.clicked.connect(lambda: self.cambiar_pagina(4, self.btn_votacion))
-        
+
         self.btn_asistencias = QPushButton("  Asistencias")
         self.btn_asistencias.setStyleSheet(estilo_boton)
         self.btn_asistencias.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-asistencias.svg')))
         self.btn_asistencias.setCheckable(True)
         sidebar_layout.addWidget(self.btn_asistencias)
         self.btn_asistencias.clicked.connect(lambda: self.cambiar_pagina(5, self.btn_asistencias))
-        
+
         self.btn_operativas = QPushButton("  Novedades Operativas")
         self.btn_operativas.setStyleSheet(estilo_boton)
         self.btn_operativas.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-operativas.svg')))
         self.btn_operativas.setCheckable(True)
         sidebar_layout.addWidget(self.btn_operativas)
         self.btn_operativas.clicked.connect(lambda: self.cambiar_pagina(6, self.btn_operativas))
-        
+
         self.btn_reportes = QPushButton("  Reportes")
         self.btn_reportes.setStyleSheet(estilo_boton)
         self.btn_reportes.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-reportes.svg')))
@@ -161,9 +162,6 @@ class VentanaPrincipal(QMainWindow):
         sidebar_layout.addWidget(self.btn_reportes)
         self.btn_reportes.clicked.connect(lambda: self.cambiar_pagina(7, self.btn_reportes))
 
-        # ==================== APLICAR PRIVILEGIOS DEL USUARIO ====================
-        # Los accesos se editan desde Usuarios > Asignar privilegios y se guardan en la BD.
-        # Si el usuario no tiene privilegios guardados, se usan los valores por defecto de su rol.
         self.permisos = obtener_permisos(self.id_usuario, self.rol_usuario)
         self.btn_usuarios.setVisible(self.permisos["usuarios"])
         self.btn_trabajadores.setVisible(self.permisos["trabajadores"])
@@ -171,11 +169,9 @@ class VentanaPrincipal(QMainWindow):
         self.btn_asistencias.setVisible(self.permisos["asistencias"])
         self.btn_operativas.setVisible(self.permisos["operativas"])
         self.btn_reportes.setVisible(self.permisos["reportes"])
-        
-        # Espaciador flexible para empujar el botón de salida hacia el fondo
+
         sidebar_layout.addStretch()
-        
-        # Botón de Cerrar sesión con icono
+
         self.btn_cerrar = QPushButton("  Cerrar sesión")
         self.btn_cerrar.setIcon(QIcon(os.path.join(directorio, 'imagenes', 'icono-cerrar-sesion.svg')))
         self.btn_cerrar.setStyleSheet("""
@@ -192,7 +188,7 @@ class VentanaPrincipal(QMainWindow):
                 background-color: #d9d9d9;
             }
         """)
-        
+
         efecto_sombra = QGraphicsDropShadowEffect(self)
         efecto_sombra.setBlurRadius(20)
         efecto_sombra.setXOffset(5)
@@ -202,10 +198,10 @@ class VentanaPrincipal(QMainWindow):
 
         self.btn_cerrar.clicked.connect(self.cerrar_sesion)
         sidebar_layout.addWidget(self.btn_cerrar)
-        
+
         # ==================== ÁREA PRINCIPAL (DERECHA) ====================
         self.stacked_widget = QStackedWidget()
-        self.stacked_widget.setStyleSheet("background-color: #ebebeb;")
+        self.stacked_widget.setStyleSheet("background-color: #bfbdbe;")
 
         self.pagina_inicio = VentanaInicio()
         self.pagina_perfil = VentanaPerfil()
@@ -228,22 +224,47 @@ class VentanaPrincipal(QMainWindow):
         main_layout.addWidget(self.sidebar)
         main_layout.addWidget(self.stacked_widget)
 
-        # ==================== VIGILANCIA DE LA CUENTA ====================
-        # Cada pocos segundos se comprueba que la cuenta siga habilitada; si el administrador
-        # la bloquea, la sesión se cierra automáticamente.
+        # Asegurar estado en línea al abrir sesión con id_usuario válido
         self._conexion_vigilancia = None
+        if self.id_usuario is not None:
+            self._establecer_estado_linea(1)
+
+        # Vigilancia ligera de la cuenta
         self.timer_cuenta = QTimer(self)
         self.timer_cuenta.timeout.connect(self.verificar_cuenta)
         if self.id_usuario is not None:
-            self.timer_cuenta.start(3000)
+            self.timer_cuenta.start(4000)
 
-    # ==================== MÉTODOS ====================
+    def _establecer_estado_linea(self, en_linea):
+        """Actualiza en_linea (1 o 0) para el usuario actual de forma ligera."""
+        if self.id_usuario is None:
+            return
+        try:
+            conexion = self._obtener_conexion_vigilancia()
+            if not conexion:
+                return
+            cursor = conexion.cursor()
+            if en_linea:
+                cursor.execute(
+                    "UPDATE usuarios SET en_linea = 1, ultimo_acceso = NOW() WHERE id_usuario = %s",
+                    (self.id_usuario,)
+                )
+            else:
+                cursor.execute(
+                    "UPDATE usuarios SET en_linea = 0 WHERE id_usuario = %s",
+                    (self.id_usuario,)
+                )
+            conexion.commit()
+            cursor.close()
+        except Exception:
+            self._cerrar_conexion_vigilancia()
+
     def toggle_sidebar(self):
         """Método para contraer o expandir el menú lateral de forma responsiva"""
         if self.menu_expandido:
             self.sidebar.setFixedWidth(75)
             self.label_logo_sidebar.hide()
-            
+
             self.btn_inicio.setText("")
             self.btn_perfil.setText("")
             if self.btn_usuarios.isVisible(): self.btn_usuarios.setText("")
@@ -257,7 +278,7 @@ class VentanaPrincipal(QMainWindow):
         else:
             self.sidebar.setFixedWidth(260)
             self.label_logo_sidebar.show()
-            
+
             self.btn_inicio.setText("  Inicio")
             self.btn_perfil.setText("  Perfil")
             if self.btn_usuarios.isVisible(): self.btn_usuarios.setText("  Usuarios")
@@ -296,12 +317,11 @@ class VentanaPrincipal(QMainWindow):
             cursor.execute("SELECT bloqueado FROM usuarios WHERE id_usuario = %s", (self.id_usuario,))
             fila = cursor.fetchone()
             cursor.close()
-            conexion.commit()  # Cierra la transacción para ver siempre los datos más recientes
+            conexion.commit()
             if fila is None:
                 return "eliminada"
             return "bloqueada" if fila["bloqueado"] else "habilitada"
         except Exception:
-            # La consulta falló: se descarta la conexión y se reintenta en el próximo ciclo
             self._cerrar_conexion_vigilancia()
             return None
 
@@ -311,6 +331,9 @@ class VentanaPrincipal(QMainWindow):
             return
 
         self.timer_cuenta.stop()
+        self._establecer_estado_linea(0)
+        self.estado_sesion_actualizado = True
+
         if estado == "bloqueada":
             mensaje = MENSAJE_CUENTA_INHABILITADA
         else:
@@ -322,10 +345,12 @@ class VentanaPrincipal(QMainWindow):
 
     def cerrar_sesion(self):
         self.cerrando_sesion = True
+        if not self.estado_sesion_actualizado:
+            self._establecer_estado_linea(0)
+            self.estado_sesion_actualizado = True
         self.close()
 
     def cambiar_pagina(self, indice, boton_activo):
-        # Blindaje de seguridad a nivel de código según los privilegios del usuario
         claves_por_indice = {
             2: "usuarios", 3: "trabajadores", 4: "votacion",
             5: "asistencias", 6: "operativas", 7: "reportes"
@@ -336,24 +361,25 @@ class VentanaPrincipal(QMainWindow):
 
         self.stacked_widget.setCurrentIndex(indice)
         botones = [
-            self.btn_inicio, 
-            self.btn_perfil, 
-            self.btn_usuarios, 
-            self.btn_trabajadores, 
-            self.btn_votacion, 
-            self.btn_asistencias, 
-            self.btn_operativas, 
+            self.btn_inicio,
+            self.btn_perfil,
+            self.btn_usuarios,
+            self.btn_trabajadores,
+            self.btn_votacion,
+            self.btn_asistencias,
+            self.btn_operativas,
             self.btn_reportes
         ]
         for btn in botones:
-            if btn == boton_activo:
-                btn.setChecked(True)
-            else:
-                btn.setChecked(False)
+            btn.setChecked(btn == boton_activo)
 
     def closeEvent(self, event):
         self.timer_cuenta.stop()
+        if not self.estado_sesion_actualizado:
+            self._establecer_estado_linea(0)
+            self.estado_sesion_actualizado = True
         self._cerrar_conexion_vigilancia()
+
         if self.cerrando_sesion:
             if self.ventana_login:
                 self.ventana_login.limpiar_formulario()
@@ -363,8 +389,9 @@ class VentanaPrincipal(QMainWindow):
             event.accept()
             QApplication.quit()
 
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ventana = VentanaPrincipal()
-    ventana.showMaximized() 
+    ventana.showMaximized()
     sys.exit(app.exec())

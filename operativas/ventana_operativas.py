@@ -410,8 +410,9 @@ class FilaNovedad(QFrame):
         lt.addStretch()
 
         fondo, texto = COLORES_TIPO.get(datos["color"], COLORES_TIPO["gris"])
+        borde = texto  # La pastilla lleva el borde del mismo color del tipo
         if atenuada:
-            fondo, texto = "#eceff3", "#7b8494"
+            fondo, texto, borde = "#eceff3", "#7b8494", "#b8c0cc"
         col_tipo = QWidget()
         col_tipo.setFixedWidth(self.ANCHO_TIPO)
         ltipo = QHBoxLayout(col_tipo)
@@ -419,9 +420,12 @@ class FilaNovedad(QFrame):
         lbl_tipo = QLabel(str(datos["tipo"]))
         lbl_tipo.setTextFormat(Qt.TextFormat.PlainText)
         lbl_tipo.setToolTip(str(datos.get("justificacion") or ""))
+        # Pastilla: borde de color, relleno suave del mismo color y texto del color del tipo
+        lbl_tipo.setFixedHeight(28)  # Mismo alto que el botón Finalizar
+        lbl_tipo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_tipo.setStyleSheet(
             f"font-size: 12px; font-weight: bold; color: {texto}; background-color: {fondo};"
-            "border: none; border-radius: 11px; padding: 4px 12px;"
+            f"border: 1.5px solid {borde}; border-radius: 14px; padding: 0px 14px;"
         )
         ltipo.addWidget(lbl_tipo)
         ltipo.addStretch()
@@ -1045,9 +1049,11 @@ class VentanaOperativas(QWidget):
             fila.setSpacing(8)
             chip = QLabel(str(tipo))
             chip.setTextFormat(Qt.TextFormat.PlainText)
+            chip.setFixedHeight(24)
+            chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
             chip.setStyleSheet(
                 f"font-size: 11px; font-weight: bold; color: {texto}; background-color: {fondo};"
-                "border: none; border-radius: 9px; padding: 3px 10px;"
+                f"border: 1.5px solid {texto}; border-radius: 12px; padding: 0px 12px;"
             )
             detalle = QLabel(f"×{cantidad} · {texto_dias(dias)}")
             detalle.setStyleSheet(f"font-size: 12px; color: #555555; {sin_estilo}")
@@ -1148,7 +1154,7 @@ class VentanaOperativas(QWidget):
         except Exception as e:
             QMessageBox.critical(
                 self, "Error al abrir el registro",
-                f"No se pudo abrir o completar el registro de la novedad.\\n\\nDetalle: {e}"
+                f"No se pudo abrir o completar el registro de la novedad.\n\nDetalle: {e}"
             )
 
     def finalizar_novedad(self, datos):
@@ -1164,7 +1170,7 @@ class VentanaOperativas(QWidget):
         except Exception as e:
             QMessageBox.critical(
                 self, "Error al finalizar la novedad",
-                f"No se pudo completar la operación.\\n\\nDetalle: {e}"
+                f"No se pudo completar la operación.\n\nDetalle: {e}"
             )
 
 

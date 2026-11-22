@@ -2,19 +2,16 @@ import re
 import sys
 import os
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame,
     QLineEdit, QPushButton, QLabel, QScrollArea, QSizePolicy,
-    QMenu, QWidgetAction
+    QMenu, QWidgetAction, QDialog, QMessageBox
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QTimer
 from PyQt6.QtGui import QIcon, QPixmap, QPainter
 from PyQt6.QtSvg import QSvgRenderer
 
 
-
 # ==================== ICONOS (rutas autocalculables) ====================
-# Misma búsqueda relativa de la ventana de votación: carpeta imagenes junto
-# al módulo o en el directorio padre.
 _DIRECTORIO = os.path.dirname(os.path.abspath(__file__))
 CARPETAS_IMAGENES = [
     os.path.join(_DIRECTORIO, '..', 'imagenes'),
@@ -62,39 +59,71 @@ def cargar_pixmap_svg(clave, alto):
 try:
     from database import GestorBD
 except ImportError:
-    import sys, os
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     from database import GestorBD
 
-# Importación de la ventana modal de privilegios
+# Importación de las ventanas modales
 try:
     from .ventana_privilegios import VentanaPrivilegios
 except ImportError:
     from ventana_privilegios import VentanaPrivilegios
 
-# Importación de la ventana modal de cambio de rol
 try:
     from .cambio_rol import VentanaCambioRol
 except ImportError:
     from cambio_rol import VentanaCambioRol
 
-# Importación de la ventana modal de eliminación de usuario
 try:
     from .ventana_eliminacion import VentanaEliminacion
 except ImportError:
     from ventana_eliminacion import VentanaEliminacion
 
-# Importación de la ventana modal de bloqueo / devolución de acceso
 try:
     from .ventana_acceso import VentanaAcceso, asegurar_columna_bloqueado
 except ImportError:
     from ventana_acceso import VentanaAcceso, asegurar_columna_bloqueado
 
-# Importación de la ventana modal de actualización de credenciales
 try:
     from .actualizar_credenciales import VentanaCredenciales
 except ImportError:
     from actualizar_credenciales import VentanaCredenciales
+
+try:
+    from .registro_usuarios import VentanaRegistroUsuario
+except ImportError:
+    from registro_usuarios import VentanaRegistroUsuario
+
+_ESQUEMA_USUARIOS_LISTO = False
+
+
+def asegurar_esquema_usuarios():
+    """Verifica una sola vez por ejecución las columnas ultimo_acceso y en_linea."""
+    global _ESQUEMA_USUARIOS_LISTO
+    if _ESQUEMA_USUARIOS_LISTO:
+        return
+    try:
+        db = GestorBD()
+        conexion = db.obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor(dictionary=True)
+            cambios = False
+
+            cursor.execute("SHOW COLUMNS FROM usuarios LIKE 'ultimo_acceso'")
+            if not cursor.fetchone():
+                cursor.execute("ALTER TABLE usuarios ADD COLUMN ultimo_acceso DATETIME NULL")
+                cambios = True
+
+            cursor.execute("SHOW COLUMNS FROM usuarios LIKE 'en_linea'")
+            if not cursor.fetchone():
+                cursor.execute("ALTER TABLE usuarios ADD COLUMN en_linea TINYINT(1) NOT NULL DEFAULT 0")
+                cambios = True
+
+            if cambios:
+                conexion.commit()
+            cursor.close()
+            _ESQUEMA_USUARIOS_LISTO = True
+    except Exception as e:
+        print(f"Error al verificar columnas de usuarios: {e}")
 
 
 class FilaUsuario(QFrame):
@@ -108,10 +137,10 @@ class FilaUsuario(QFrame):
     def __init__(self, datos_usuario, parent=None, id_usuario_actual=None):
         super().__init__(parent)
         self.datos = datos_usuario
-        self.id_usuario_actual = id_usuario_actual  # Usuario con la sesión iniciada
+        self.id_usuario_actual = id_usuario_actual
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(60)
-        
+
         self.setStyleSheet("""
             FilaUsuario {
                 background-color: #f4f6f9;
@@ -136,7 +165,7 @@ class FilaUsuario(QFrame):
         # 2. Trabajador vinculado
         self.lbl_trabajador = QLabel(self.datos.get("trabajador_vinculado", "N/D"))
         self.lbl_trabajador.setStyleSheet("font-size: 13px; color: #333333; border: none; background: transparent;")
-        
+
         # 2.1 Cédula del trabajador
         self.lbl_cedula = QLabel(str(self.datos.get("cedula", "N/D")))
         self.lbl_cedula.setStyleSheet("font-size: 13px; color: #333333; border: none; background: transparent;")
@@ -152,7 +181,26 @@ class FilaUsuario(QFrame):
         self.lbl_acceso.setStyleSheet("font-size: 12px; color: #666666; border: none; background: transparent;")
         self.lbl_acceso.setFixedWidth(150)
 
-        # 5. Botón de opciones con tres puntos en vertical (⋮)
+        # 5. Estado de sesión: bloqueado o sin sesión activa = Fuera de línea; activo = En línea
+        esta_en_linea = bool(self.datos.get("en_linea")) and not bool(self.datos.get("bloqueado"))
+        self.lbl_estado = QLabel()
+        self.lbl_estado.setFixedWidth(112)
+        self.lbl_estado.setTextFormat(Qt.TextFormat.RichText)
+        if esta_en_linea:
+            self.lbl_estado.setText(
+                "<span style='color:#20a45a;'>●</span>&nbsp; "
+                "<span style='color:#333333;'>En línea</span>"
+            )
+        else:
+            self.lbl_estado.setText(
+                "<span style='color:#9aa1ab;'>●</span>&nbsp; "
+                "<span style='color:#7b8494;'>Fuera de línea</span>"
+            )
+        self.lbl_estado.setStyleSheet(
+            "font-size: 12px; font-weight: bold; color: #333333; border: none; background: transparent;"
+        )
+
+        # 6. Botón de opciones con tres puntos en vertical (⋮)
         self.btn_puntos = QPushButton("⋮")
         self.btn_puntos.setFixedSize(32, 32)
         self.btn_puntos.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -171,9 +219,12 @@ class FilaUsuario(QFrame):
             }
         """)
 
-        # Usuario con el acceso bloqueado: sus datos se ven en gris y tachados
+        # Usuario con el acceso bloqueado: sus datos y estado se ven en gris y tachados
         if self.datos.get("bloqueado"):
-            for lbl in (self.lbl_usuario, self.lbl_trabajador, self.lbl_cedula, self.lbl_rol, self.lbl_acceso):
+            for lbl in (
+                self.lbl_usuario, self.lbl_trabajador, self.lbl_cedula,
+                self.lbl_rol, self.lbl_acceso, self.lbl_estado
+            ):
                 lbl.setStyleSheet(re.sub(
                     r"color:\s*#[0-9a-fA-F]+;",
                     "color: #9e9e9e; text-decoration: line-through;",
@@ -185,12 +236,12 @@ class FilaUsuario(QFrame):
         layout.addWidget(self.lbl_cedula)
         layout.addWidget(self.lbl_rol)
         layout.addWidget(self.lbl_acceso)
+        layout.addWidget(self.lbl_estado)
         layout.addWidget(self.btn_puntos)
 
         self.btn_puntos.clicked.connect(self.mostrar_menu_opciones)
 
     def mostrar_menu_opciones(self):
-        """Despliega el menú de opciones del usuario (por ahora sin funcionalidad)"""
         menu = QMenu(self)
         menu.setStyleSheet("""
             QMenu {
@@ -230,10 +281,8 @@ class FilaUsuario(QFrame):
             }
         """
 
-        # Si el usuario está bloqueado, la opción pasa a devolver el acceso
         texto_acceso = "Devolver acceso" if self.datos.get("bloqueado") else "Bloquear acceso"
 
-        # (texto, estilo, función a ejecutar); None = funcionalidad pendiente
         opciones = [
             ("Asignar privilegios", estilo_normal, self.abrir_privilegios),
             ("Cambiar rol", estilo_normal, self.abrir_cambio_rol),
@@ -254,48 +303,37 @@ class FilaUsuario(QFrame):
             accion.setDefaultWidget(boton)
             menu.addAction(accion)
 
-        # Alinear el borde derecho del menú con el del botón de tres puntos
         ancho_menu = menu.sizeHint().width()
         posicion = self.btn_puntos.mapToGlobal(
             QPoint(self.btn_puntos.width() - ancho_menu, self.btn_puntos.height() + 4)
         )
         menu.exec(posicion)
 
-        # La acción se ejecuta cuando el menú ya se cerró
         if elegida and elegida[0]:
             elegida[0]()
 
     def abrir_privilegios(self):
-        """Abre la ventana modal para marcar/desmarcar las ventanas a las que accede el usuario"""
         ventana = VentanaPrivilegios(self.datos, self.window())
         ventana.exec()
 
     def abrir_cambio_rol(self):
-        """Abre la ventana modal para elegir el nuevo rol del usuario"""
         ventana = VentanaCambioRol(self.datos, self.window())
         if ventana.exec():
-            # Se guardó un cambio: se avisa para refrescar la lista y los contadores
             self.rol_actualizado.emit()
 
     def abrir_eliminacion(self):
-        """Abre la ventana modal de confirmación para eliminar al usuario"""
         ventana = VentanaEliminacion(self.datos, self.window(), self.id_usuario_actual)
         if ventana.exec():
-            # Se eliminó el usuario: se avisa para refrescar la lista y los contadores
             self.usuario_eliminado.emit()
 
     def abrir_credenciales(self):
-        """Abre la ventana modal para actualizar el usuario y la contraseña"""
         ventana = VentanaCredenciales(self.datos, self.window())
         if ventana.exec():
-            # Se guardaron los cambios: se avisa para refrescar la lista
             self.credenciales_actualizadas.emit()
 
     def abrir_acceso(self):
-        """Abre la ventana modal para bloquear el acceso del usuario o devolvérselo"""
         ventana = VentanaAcceso(self.datos, self.window(), self.id_usuario_actual)
         if ventana.exec():
-            # Se cambió el estado del acceso: se avisa para refrescar la lista
             self.acceso_actualizado.emit()
 
     def mousePressEvent(self, event):
@@ -324,17 +362,17 @@ class TarjetaMetricaRol(QFrame):
                 background-color: #f8fafc;
             }}
         """)
-        
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 12, 15, 12)
         layout.setSpacing(4)
-        
+
         self.lbl_tit = QLabel(titulo)
         self.lbl_tit.setStyleSheet("font-size: 12px; font-weight: bold; color: #333333; border: none; background: transparent;")
-        
+
         self.lbl_val = QLabel(valor)
         self.lbl_val.setStyleSheet(f"font-size: 22px; font-weight: bold; color: {color_borde}; border: none; background: transparent;")
-        
+
         self.lbl_desc = QLabel(descripcion)
         self.lbl_desc.setWordWrap(True)
         self.lbl_desc.setStyleSheet("font-size: 11px; color: #777777; border: none; background: transparent;")
@@ -352,8 +390,9 @@ class VentanaUsuarios(QWidget):
     def __init__(self, parent=None, id_usuario_actual=None):
         super().__init__(parent)
 
-        self.id_usuario_actual = id_usuario_actual  # Usuario con la sesión iniciada
+        self.id_usuario_actual = id_usuario_actual
         self.filtro_actual = "todos"
+        self._firma_lista = None
 
         layout_principal = QVBoxLayout(self)
         layout_principal.setContentsMargins(20, 20, 20, 20)
@@ -364,29 +403,29 @@ class VentanaUsuarios(QWidget):
         layout_tarjetas.setSpacing(12)
 
         self.card_todos = TarjetaMetricaRol(
-            "Total Usuarios", "0", 
-            "Cuentas totales registradas en el sistema.", 
+            "Total Usuarios", "0",
+            "Cuentas totales registradas en el sistema.",
             "#163e7a", "todos"
         )
         self.card_todos.cliqueada.connect(self.cambiar_filtro_rol)
 
         self.card_admin = TarjetaMetricaRol(
-            "Administrador", "0", 
-            "Control total de configuración y gestión global.", 
+            "Administrador", "0",
+            "Control total de configuración y gestión global.",
             "#235299", "Administrador"
         )
         self.card_admin.cliqueada.connect(self.cambiar_filtro_rol)
 
         self.card_rrhh = TarjetaMetricaRol(
-            "Recursos Humanos", "0", 
-            "Administración de expedientes y personal.", 
+            "Recursos Humanos", "0",
+            "Administración de expedientes y personal.",
             "#3b6ba3", "Recursos Humanos"
         )
         self.card_rrhh.cliqueada.connect(self.cambiar_filtro_rol)
 
         self.card_sec = TarjetaMetricaRol(
-            "Secretario/a", "0", 
-            "Control de las asistencias diarias.", 
+            "Secretario/a", "0",
+            "Control de las asistencias diarias.",
             "#4d7fc2", "Secretario/a"
         )
         self.card_sec.cliqueada.connect(self.cambiar_filtro_rol)
@@ -407,7 +446,6 @@ class VentanaUsuarios(QWidget):
                 border: none;
             }
         """)
-        
         self.panel_listado.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         layout_panel = QVBoxLayout(self.panel_listado)
@@ -418,7 +456,7 @@ class VentanaUsuarios(QWidget):
         self.lbl_titulo_lista.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c2c2c; border: none; background: transparent;")
         layout_panel.addWidget(self.lbl_titulo_lista)
 
-        # Barra de búsqueda superior
+        # Barra de búsqueda a la izquierda y botón "+ Agregar usuarios" a la derecha
         controles_layout = QHBoxLayout()
         controles_layout.setSpacing(10)
 
@@ -445,13 +483,35 @@ class VentanaUsuarios(QWidget):
                 QIcon(pixmap_lupa), QLineEdit.ActionPosition.LeadingPosition
             )
         self.txt_buscar.textChanged.connect(self.al_escribir_busqueda)
-        self.txt_buscar.textChanged.connect(lambda: self.cargar_usuarios_desde_bd())
+        self.txt_buscar.textChanged.connect(lambda: self.cargar_usuarios_desde_bd(forzar=True))
+
+        self.btn_agregar_usuario = QPushButton("+ Agregar usuarios")
+        self.btn_agregar_usuario.setFixedHeight(36)
+        self.btn_agregar_usuario.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_agregar_usuario.setStyleSheet("""
+            QPushButton {
+                background-color: #0833a2;
+                color: white;
+                border: 2px solid #0833a2;
+                border-radius: 18px;
+                padding: 0px 18px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #3150ff;
+                border: 2px solid #3150ff;
+            }
+        """)
+        self.btn_agregar_usuario.clicked.connect(self.abrir_registro_usuario)
+
         controles_layout.addWidget(self.txt_buscar)
         controles_layout.addStretch()
+        controles_layout.addWidget(self.btn_agregar_usuario)
 
         layout_panel.addLayout(controles_layout)
 
-        # Encabezados de columnas de la tabla (con fondo gris claro)
+        # Encabezados de columnas de la tabla
         self.barra_encabezados = QFrame()
         self.barra_encabezados.setObjectName("barraEncabezados")
         self.barra_encabezados.setFixedHeight(38)
@@ -466,7 +526,7 @@ class VentanaUsuarios(QWidget):
         headers_layout = QHBoxLayout(self.barra_encabezados)
         headers_layout.setContentsMargins(15, 0, 15, 0)
         headers_layout.setSpacing(20)
-        
+
         lbl_h1 = QLabel("Usuario")
         lbl_h1.setStyleSheet("font-size: 12px; font-weight: bold; color: #777777; background: transparent;")
         lbl_h1.setFixedWidth(140)
@@ -486,9 +546,13 @@ class VentanaUsuarios(QWidget):
         lbl_h4.setStyleSheet("font-size: 12px; font-weight: bold; color: #777777; background: transparent;")
         lbl_h4.setFixedWidth(150)
 
-        lbl_h5 = QLabel("")
-        lbl_h5.setStyleSheet("background: transparent;")
-        lbl_h5.setFixedWidth(32)
+        lbl_h5 = QLabel("Estado")
+        lbl_h5.setStyleSheet("font-size: 12px; font-weight: bold; color: #777777; background: transparent;")
+        lbl_h5.setFixedWidth(112)
+
+        lbl_h6 = QLabel("")
+        lbl_h6.setStyleSheet("background: transparent;")
+        lbl_h6.setFixedWidth(32)
 
         headers_layout.addWidget(lbl_h1)
         headers_layout.addWidget(lbl_h2, stretch=1)
@@ -496,6 +560,7 @@ class VentanaUsuarios(QWidget):
         headers_layout.addWidget(lbl_h3)
         headers_layout.addWidget(lbl_h4)
         headers_layout.addWidget(lbl_h5)
+        headers_layout.addWidget(lbl_h6)
         layout_panel.addWidget(self.barra_encabezados)
 
         # Scroll Area para la lista de usuarios
@@ -515,11 +580,42 @@ class VentanaUsuarios(QWidget):
 
         layout_principal.addWidget(self.panel_listado)
 
-        # Cargar métricas y datos iniciales
-        self.asegurar_columna_ultimo_acceso()
+        # Temporizador ligero (8s) solo cuando la vista está visible para reflejar estados en línea
+        self.timer_estado = QTimer(self)
+        self.timer_estado.setInterval(8000)
+        self.timer_estado.timeout.connect(self._refresco_periodico)
+
+        asegurar_esquema_usuarios()
         asegurar_columna_bloqueado()
         self.actualizar_metricas_roles()
-        self.cargar_usuarios_desde_bd()
+        self.cargar_usuarios_desde_bd(forzar=True)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.cargar_usuarios_desde_bd(forzar=True)
+        if not self.timer_estado.isActive():
+            self.timer_estado.start()
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        if self.timer_estado.isActive():
+            self.timer_estado.stop()
+
+    def _refresco_periodico(self):
+        if self.isVisible():
+            self.cargar_usuarios_desde_bd(forzar=False)
+
+    def abrir_registro_usuario(self):
+        try:
+            dialogo = VentanaRegistroUsuario(parent=self)
+            if dialogo.exec() == QDialog.DialogCode.Accepted:
+                self.cargar_usuarios_desde_bd(forzar=True)
+                self.actualizar_metricas_roles()
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error al abrir el registro",
+                f"No se pudo abrir la ventana de registro de usuarios:\n{e}"
+            )
 
     def cambiar_filtro_rol(self, rol):
         self.filtro_actual = rol
@@ -527,22 +623,7 @@ class VentanaUsuarios(QWidget):
             self.lbl_titulo_lista.setText("Usuarios del sistema")
         else:
             self.lbl_titulo_lista.setText(f"Usuarios del sistema - {rol}")
-        self.cargar_usuarios_desde_bd()
-
-    def asegurar_columna_ultimo_acceso(self):
-        """La tabla usuarios no tiene 'ultimo_acceso'; se agrega una sola vez si falta."""
-        try:
-            db = GestorBD()
-            conexion = db.obtener_conexion()
-            if conexion:
-                cursor = conexion.cursor(dictionary=True)
-                cursor.execute("SHOW COLUMNS FROM usuarios LIKE 'ultimo_acceso'")
-                if not cursor.fetchone():
-                    cursor.execute("ALTER TABLE usuarios ADD COLUMN ultimo_acceso DATETIME NULL")
-                    conexion.commit()
-                cursor.close()
-        except Exception as e:
-            print(f"Error al verificar la columna ultimo_acceso: {e}")
+        self.cargar_usuarios_desde_bd(forzar=True)
 
     def actualizar_metricas_roles(self):
         try:
@@ -551,7 +632,6 @@ class VentanaUsuarios(QWidget):
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
 
-                # Consultas para los contadores de cada widget
                 cursor.execute("SELECT COUNT(*) AS total FROM usuarios")
                 res_total = cursor.fetchone()
                 self.card_todos.lbl_val.setText(str(res_total['total'] if res_total else 0))
@@ -583,12 +663,7 @@ class VentanaUsuarios(QWidget):
         if self.accion_lupa is not None:
             self.accion_lupa.setVisible(not texto)
 
-    def cargar_usuarios_desde_bd(self):
-        while self.layout_filas.count() > 1:
-            item = self.layout_filas.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
+    def cargar_usuarios_desde_bd(self, forzar=True):
         texto_busqueda = self.txt_buscar.text().strip()
 
         try:
@@ -596,11 +671,12 @@ class VentanaUsuarios(QWidget):
             conexion = db.obtener_conexion()
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
-                
+
                 sql = """
-                    SELECT 
+                    SELECT
                         u.id_usuario AS id_usuario,
                         COALESCE(u.bloqueado, 0) AS bloqueado,
+                        COALESCE(u.en_linea, 0) AS en_linea,
                         u.nombre_usuario AS usuario,
                         COALESCE(CONCAT(t.nombres, ' ', t.apellidos), 'Sin vincular') AS trabajador_vinculado,
                         COALESCE(t.cedula_trabajador, 'N/D') AS cedula,
@@ -611,7 +687,7 @@ class VentanaUsuarios(QWidget):
                     LEFT JOIN roles r ON u.id_rol_fk = r.id_rol
                     WHERE 1=1
                 """
-                
+
                 params = []
 
                 if self.filtro_actual != "todos":
@@ -619,9 +695,9 @@ class VentanaUsuarios(QWidget):
                     params.append(self.filtro_actual)
 
                 if texto_busqueda:
-                    sql += """ AND (u.nombre_usuario LIKE %s 
-                                   OR t.nombres LIKE %s 
-                                   OR t.apellidos LIKE %s 
+                    sql += """ AND (u.nombre_usuario LIKE %s
+                                   OR t.nombres LIKE %s
+                                   OR t.apellidos LIKE %s
                                    OR CONCAT(t.nombres, ' ', t.apellidos) LIKE %s)"""
                     patron = f"%{texto_busqueda}%"
                     params.extend([patron, patron, patron, patron])
@@ -632,12 +708,29 @@ class VentanaUsuarios(QWidget):
                 usuarios = cursor.fetchall()
                 cursor.close()
 
+                firma = tuple(
+                    (
+                        u["id_usuario"], u["bloqueado"], u["en_linea"],
+                        u["usuario"], u["trabajador_vinculado"], u["cedula"],
+                        u["rol"], u["ultimo_acceso"]
+                    )
+                    for u in usuarios
+                )
+                if not forzar and firma == self._firma_lista:
+                    return
+                self._firma_lista = firma
+
+                while self.layout_filas.count() > 1:
+                    item = self.layout_filas.takeAt(0)
+                    if item.widget():
+                        item.widget().deleteLater()
+
                 for u in usuarios:
                     fila = FilaUsuario(u, id_usuario_actual=self.id_usuario_actual)
-                    fila.rol_actualizado.connect(self.cargar_usuarios_desde_bd)
-                    fila.usuario_eliminado.connect(self.cargar_usuarios_desde_bd)
-                    fila.acceso_actualizado.connect(self.cargar_usuarios_desde_bd)
-                    fila.credenciales_actualizadas.connect(self.cargar_usuarios_desde_bd)
+                    fila.rol_actualizado.connect(lambda: self.cargar_usuarios_desde_bd(forzar=True))
+                    fila.usuario_eliminado.connect(lambda: self.cargar_usuarios_desde_bd(forzar=True))
+                    fila.acceso_actualizado.connect(lambda: self.cargar_usuarios_desde_bd(forzar=True))
+                    fila.credenciales_actualizadas.connect(lambda: self.cargar_usuarios_desde_bd(forzar=True))
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
 
                 self.actualizar_metricas_roles()

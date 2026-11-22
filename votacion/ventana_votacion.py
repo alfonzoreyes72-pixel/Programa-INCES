@@ -19,11 +19,17 @@ except ImportError:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     from database import GestorBD
 
-# Importación de la ventana modal para agregar centros de votación
+# Importación de la ventana modal para agregar/modificar centros de votación
 try:
     from .agregar_centro import VentanaAgregarCentro
 except ImportError:
     from agregar_centro import VentanaAgregarCentro
+
+# Importación de la ventana modal para eliminar centros de votación
+try:
+    from .eliminar_centro import VentanaEliminarCentro
+except ImportError:
+    from eliminar_centro import VentanaEliminarCentro
 
 
 ANCHO_MIN_TARJETA = 290
@@ -368,8 +374,6 @@ class PopupTrabajadores(QFrame):
         self.contenedor_filas.setUpdatesEnabled(True)
 
     def mousePressEvent(self, event):
-        # Si se hace clic fuera del popup justo sobre la misma píldora que lo abrió,
-        # se cierra y se consume el evento para evitar que se reabra inmediatamente.
         if self.pildora_origen is not None and not self.rect().contains(event.pos()):
             pos_global = event.globalPosition().toPoint()
             rect_pildora = QRect(
@@ -436,6 +440,7 @@ class TarjetaCentro(QFrame):
     """Tarjeta blanca con borde azul que representa un centro de votación"""
     cliqueada = pyqtSignal(object)
     ver_trabajadores = pyqtSignal(object, object)  # (tarjeta, píldora)
+    eliminar_centro = pyqtSignal(object)  # tarjeta
 
     MARGEN_IZQ = 18
     MARGEN_DER = 15
@@ -487,16 +492,55 @@ class TarjetaCentro(QFrame):
         self.lbl_direccion.setWordWrap(True)
         self.lbl_direccion.setStyleSheet(f"font-size: 12px; color: #777777; {estilo_label}")
 
-        # Etiqueta con la cantidad de trabajadores
+        # Fila inferior: píldora de trabajadores a la izquierda y botón de basura a la derecha
         total = int(datos.get("total_trabajadores", 0) or 0)
         self.pildora = PildoraTrabajadores(total)
         self.pildora.clicked.connect(lambda: self.ver_trabajadores.emit(self, self.pildora))
+
+        self.btn_eliminar = QPushButton()
+        self.btn_eliminar.setObjectName("btnEliminarCentro")
+        self.btn_eliminar.setFixedSize(28, 28)
+        self.btn_eliminar.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_eliminar.setToolTip("Eliminar centro de votación")
+        self.btn_eliminar.setStyleSheet("""
+            QPushButton#btnEliminarCentro {
+                background-color: #fdecec;
+                border: 1px solid #e57373;
+                border-radius: 8px;
+                padding: 0px;
+            }
+            QPushButton#btnEliminarCentro:hover {
+                background-color: #fbd5d5;
+                border: 1px solid #d32f2f;
+            }
+        """)
+        pixmap_basura = cargar_pixmap_svg("iconobasura", 14)
+        if pixmap_basura:
+            self.btn_eliminar.setIcon(QIcon(pixmap_basura))
+            self.btn_eliminar.setIconSize(QSize(14, 14))
+        else:
+            self.btn_eliminar.setText("🗑")
+            self.btn_eliminar.setStyleSheet(self.btn_eliminar.styleSheet() + """
+                QPushButton#btnEliminarCentro {
+                    color: #d32f2f;
+                    font-size: 12px;
+                    font-weight: bold;
+                }
+            """)
+        self.btn_eliminar.clicked.connect(lambda: self.eliminar_centro.emit(self))
+
+        fila_inferior = QHBoxLayout()
+        fila_inferior.setContentsMargins(0, 0, 0, 0)
+        fila_inferior.setSpacing(8)
+        fila_inferior.addWidget(self.pildora, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        fila_inferior.addStretch()
+        fila_inferior.addWidget(self.btn_eliminar, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         layout.addWidget(self.lbl_nombre)
         layout.addLayout(fila_ubicacion)
         layout.addWidget(self.lbl_direccion)
         layout.addStretch()
-        layout.addWidget(self.pildora, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout.addLayout(fila_inferior)
 
     def calcular_alto(self, ancho_tarjeta):
         """Alto necesario para que todo el texto se lea completo con el ancho dado"""
@@ -511,10 +555,10 @@ class TarjetaCentro(QFrame):
         alto_nombre = self.lbl_nombre.heightForWidth(ancho)
         alto_ubic = max(self.lbl_ubicacion.heightForWidth(ancho_texto_ubic), self.icono_ubicacion.height())
         alto_dir = self.lbl_direccion.heightForWidth(ancho)
-        alto_pildora = self.pildora.sizeHint().height()
+        alto_inferior = max(self.pildora.sizeHint().height(), self.btn_eliminar.height())
 
         alto = (2 * self.MARGEN_V + 4 + alto_nombre + alto_ubic + alto_dir
-                + alto_pildora + 4 * self.SEPARACION + 4)
+                + alto_inferior + 4 * self.SEPARACION + 4)
         return max(ALTO_MIN_TARJETA, alto)
 
     def aplicar_estilo(self):
@@ -865,6 +909,7 @@ class VentanaVotacion(QWidget):
             tarjeta = TarjetaCentro(datos, self.zona_tarjetas)
             tarjeta.cliqueada.connect(self.alternar_seleccion)
             tarjeta.ver_trabajadores.connect(self.mostrar_trabajadores)
+            tarjeta.eliminar_centro.connect(self.confirmar_eliminar_centro)
             self.tarjetas.append(tarjeta)
 
         total = len(self.tarjetas)
@@ -986,6 +1031,20 @@ class VentanaVotacion(QWidget):
         self.btn_modificar.setEnabled(self.tarjeta_seleccionada is not None)
 
     # ==================== ACCIONES ====================
+    def confirmar_eliminar_centro(self, tarjeta):
+        """Abre la ventana modal de confirmación para eliminar el centro de votación."""
+        try:
+            dialogo = VentanaEliminarCentro(tarjeta.datos, parent=self)
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Error",
+                f"No se pudo abrir la ventana de eliminación:\n{e}"
+            )
+            return
+
+        if dialogo.exec() and dialogo.eliminado:
+            self.cargar_centros()
+
     def agregar_centro(self):
         """Abre la ventana modal para registrar un centro; al guardar, se muestra el centro nuevo"""
         dialogo = VentanaAgregarCentro(parent=self)
@@ -994,14 +1053,12 @@ class VentanaVotacion(QWidget):
 
     def mostrar_centro(self, id_estado, id_municipio, id_centro):
         """Recarga los filtros, ubica el estado y municipio del centro indicado y lo deja seleccionado"""
-        # Se limpia la búsqueda para que el centro nuevo no quede oculto por el texto escrito
         self.txt_buscar.blockSignals(True)
         self.txt_buscar.clear()
         self.txt_buscar.blockSignals(False)
         if self.accion_lupa is not None:
             self.accion_lupa.setVisible(True)
 
-        # El estado o el municipio pueden ser nuevos: se recargan los filtros y se eligen los del centro
         self.restaurar_filtros(id_estado, id_municipio)
         self.cargar_centros()
 

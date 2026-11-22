@@ -1,7 +1,9 @@
 import sys
 import os
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QHBoxLayout, QVBoxLayout, QWidget, QPushButton, QGraphicsDropShadowEffect,
-                            QDialog, QFrame, QLineEdit)
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QLabel, QHBoxLayout, QVBoxLayout, QWidget,
+    QPushButton, QGraphicsDropShadowEffect, QFrame, QLineEdit
+)
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPixmap
@@ -15,6 +17,29 @@ try:
 except ImportError:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     from database import GestorBD
+
+_COLUMNAS_SESION_VERIFICADAS = False
+
+
+def asegurar_columnas_sesion(cursor, conexion):
+    """Verifica una sola vez por ejecución las columnas de sesión en usuarios."""
+    global _COLUMNAS_SESION_VERIFICADAS
+    if _COLUMNAS_SESION_VERIFICADAS:
+        return
+    cambios = False
+    cursor.execute("SHOW COLUMNS FROM usuarios LIKE 'ultimo_acceso'")
+    if not cursor.fetchone():
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN ultimo_acceso DATETIME NULL")
+        cambios = True
+
+    cursor.execute("SHOW COLUMNS FROM usuarios LIKE 'en_linea'")
+    if not cursor.fetchone():
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN en_linea TINYINT(1) NOT NULL DEFAULT 0")
+        cambios = True
+
+    if cambios:
+        conexion.commit()
+    _COLUMNAS_SESION_VERIFICADAS = True
 
 
 class VentanaLogin(QMainWindow):
@@ -38,7 +63,7 @@ class VentanaLogin(QMainWindow):
         # ZONA IZQUIERDA: Logo y adorno institucional
         # =================================================================
         self.left_container = QWidget()
-        
+
         self.left_master_layout = QVBoxLayout(self.left_container)
         self.left_master_layout.setContentsMargins(0, 0, 0, 0)
         self.left_master_layout.setSpacing(0)
@@ -51,7 +76,9 @@ class VentanaLogin(QMainWindow):
         self.label_imagen = QLabel(self.logo_container)
         directorio = os.path.dirname(__file__)
         pixmap = QPixmap(os.path.join(directorio, 'imagenes', 'logo inces.png'))
-        self.label_imagen.setPixmap(pixmap.scaled(400, 300, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        self.label_imagen.setPixmap(
+            pixmap.scaled(400, 300, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        )
         self.label_imagen.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.logo_layout.addWidget(self.label_imagen)
 
@@ -59,7 +86,9 @@ class VentanaLogin(QMainWindow):
 
         self.adorno_esquina = QSvgWidget(os.path.join(directorio, 'imagenes', 'adorno.svg'))
         self.adorno_esquina.setFixedSize(300, 215)
-        self.left_master_layout.addWidget(self.adorno_esquina, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
+        self.left_master_layout.addWidget(
+            self.adorno_esquina, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom
+        )
 
         self.layout_principal.addWidget(self.left_container, stretch=1)
 
@@ -104,8 +133,8 @@ class VentanaLogin(QMainWindow):
                 font-size: 16px;
                 font-weight: bold;
             }
-            """
-        
+        """
+
         estilo_botones = """
             QPushButton {
                 background-color: #0833a2;
@@ -121,7 +150,7 @@ class VentanaLogin(QMainWindow):
                 border: 2px solid #3150ff;
             }
         """
-        
+
         self.label_login = QLabel("Login")
         self.label_login.setStyleSheet("""
             QLabel {
@@ -198,48 +227,59 @@ class VentanaLogin(QMainWindow):
             conexion = db.obtener_conexion()
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
-                # Consulta uniendo con roles para obtener el nombre del rol
                 sql = """
-                    SELECT u.*, r.nombre_rol 
-                    FROM usuarios u 
-                    JOIN roles r ON u.id_rol_fk = r.id_rol 
+                    SELECT u.*, r.nombre_rol
+                    FROM usuarios u
+                    JOIN roles r ON u.id_rol_fk = r.id_rol
                     WHERE u.nombre_usuario = %s AND u.contraseña = %s
                 """
                 cursor.execute(sql, (usuario, contrasena))
                 resultado = cursor.fetchone()
 
+                if not resultado:
+                    cursor.close()
+                    ventana_error = VentanaError(self)
+                    ventana_error.exec()
+                    return
+
                 # Cuenta inhabilitada por el administrador: no se permite el ingreso
-                if resultado and resultado.get('bloqueado'):
+                if resultado.get('bloqueado'):
+                    try:
+                        asegurar_columnas_sesion(cursor, conexion)
+                        cursor.execute(
+                            "UPDATE usuarios SET en_linea = 0 WHERE id_usuario = %s",
+                            (resultado['id_usuario'],)
+                        )
+                        conexion.commit()
+                    except Exception:
+                        pass
                     cursor.close()
                     aviso = AvisoCuentaInhabilitada(self)
                     aviso.exec()
                     return
 
-                # Registrar la fecha y hora del último acceso del usuario
-                if resultado:
-                    try:
-                        cursor.execute("SHOW COLUMNS FROM usuarios LIKE 'ultimo_acceso'")
-                        if not cursor.fetchone():
-                            cursor.execute("ALTER TABLE usuarios ADD COLUMN ultimo_acceso DATETIME NULL")
-                        cursor.execute(
-                            "UPDATE usuarios SET ultimo_acceso = NOW() WHERE id_usuario = %s",
-                            (resultado['id_usuario'],)
-                        )
-                        conexion.commit()
-                    except Exception as e_acceso:
-                        print(f"Error al registrar el último acceso: {e_acceso}")
+                # Marcar usuario en línea y registrar último acceso en una sola transacción
+                try:
+                    asegurar_columnas_sesion(cursor, conexion)
+                    cursor.execute(
+                        "UPDATE usuarios SET ultimo_acceso = NOW(), en_linea = 1 WHERE id_usuario = %s",
+                        (resultado['id_usuario'],)
+                    )
+                    conexion.commit()
+                except Exception as e_acceso:
+                    print(f"Error al registrar sesión activa: {e_acceso}")
 
                 cursor.close()
 
-                if resultado:
-                    from ventana_principal import VentanaPrincipal
-                    rol_usuario = resultado.get('nombre_rol', 'Administrador')
-                    self.ventana_principal = VentanaPrincipal(rol=rol_usuario, ventana_login=self, id_usuario=resultado['id_usuario'])
-                    self.ventana_principal.showMaximized() 
-                    self.hide() 
-                else:
-                    ventana_error = VentanaError(self)
-                    ventana_error.exec()
+                from ventana_principal import VentanaPrincipal
+                rol_usuario = resultado.get('nombre_rol', 'Administrador')
+                self.ventana_principal = VentanaPrincipal(
+                    rol=rol_usuario,
+                    ventana_login=self,
+                    id_usuario=resultado['id_usuario']
+                )
+                self.ventana_principal.showMaximized()
+                self.hide()
             else:
                 ventana_error = VentanaError(self)
                 ventana_error.exec()
