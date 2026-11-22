@@ -342,26 +342,16 @@ class FilaUsuario(QFrame):
 
 
 class TarjetaMetricaRol(QFrame):
-    """Tarjeta superior interactiva con número, título y descripción detallada del rol"""
+    """Tarjeta superior interactiva con número, título, descripción y selección alternable"""
     cliqueada = pyqtSignal(str)
 
     def __init__(self, titulo, valor, descripcion, color_borde, filtro_rol="", parent=None):
         super().__init__(parent)
         self.filtro_rol = filtro_rol
+        self.color_borde = color_borde
+        self.activa = False
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: #ffffff;
-                border-radius: 15px;
-                border-left: 6px solid {color_borde};
-                border-top: none;
-                border-right: none;
-                border-bottom: none;
-            }}
-            QFrame:hover {{
-                background-color: #f8fafc;
-            }}
-        """)
+        self.aplicar_estilo()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 12, 15, 12)
@@ -380,6 +370,28 @@ class TarjetaMetricaRol(QFrame):
         layout.addWidget(self.lbl_tit)
         layout.addWidget(self.lbl_val)
         layout.addWidget(self.lbl_desc)
+
+    def aplicar_estilo(self):
+        if self.activa:
+            fondo, hover, borde = "#eef4fd", "#e6f0ff", "2px solid #0833a2"
+        else:
+            fondo, hover, borde = "#ffffff", "#f8fafc", "none"
+        self.setStyleSheet(f"""
+            TarjetaMetricaRol {{
+                background-color: {fondo};
+                border-radius: 15px;
+                border: {borde};
+                border-left: 6px solid {self.color_borde};
+            }}
+            TarjetaMetricaRol:hover {{
+                background-color: {hover};
+            }}
+        """)
+
+    def set_activa(self, valor):
+        if self.activa != valor:
+            self.activa = valor
+            self.aplicar_estilo()
 
     def mousePressEvent(self, event):
         self.cliqueada.emit(self.filtro_rol)
@@ -430,6 +442,14 @@ class VentanaUsuarios(QWidget):
         )
         self.card_sec.cliqueada.connect(self.cambiar_filtro_rol)
 
+        self.tarjetas_rol = {
+            "todos": self.card_todos,
+            "Administrador": self.card_admin,
+            "Recursos Humanos": self.card_rrhh,
+            "Secretario/a": self.card_sec,
+        }
+        self._sincronizar_tarjetas_rol()
+
         layout_tarjetas.addWidget(self.card_todos)
         layout_tarjetas.addWidget(self.card_admin)
         layout_tarjetas.addWidget(self.card_rrhh)
@@ -456,7 +476,7 @@ class VentanaUsuarios(QWidget):
         self.lbl_titulo_lista.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c2c2c; border: none; background: transparent;")
         layout_panel.addWidget(self.lbl_titulo_lista)
 
-        # Barra de búsqueda a la izquierda y botón "+ Agregar usuarios" a la derecha
+        # Barra de búsqueda a la izquierda y botón "＋  Agregar usuarios" a la derecha
         controles_layout = QHBoxLayout()
         controles_layout.setSpacing(10)
 
@@ -485,7 +505,7 @@ class VentanaUsuarios(QWidget):
         self.txt_buscar.textChanged.connect(self.al_escribir_busqueda)
         self.txt_buscar.textChanged.connect(lambda: self.cargar_usuarios_desde_bd(forzar=True))
 
-        self.btn_agregar_usuario = QPushButton("+ Agregar usuarios")
+        self.btn_agregar_usuario = QPushButton("＋  Agregar usuario")
         self.btn_agregar_usuario.setFixedHeight(36)
         self.btn_agregar_usuario.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_agregar_usuario.setStyleSheet("""
@@ -617,12 +637,22 @@ class VentanaUsuarios(QWidget):
                 f"No se pudo abrir la ventana de registro de usuarios:\n{e}"
             )
 
+    def _sincronizar_tarjetas_rol(self):
+        for clave, tarjeta in self.tarjetas_rol.items():
+            tarjeta.set_activa(clave == self.filtro_actual)
+
     def cambiar_filtro_rol(self, rol):
-        self.filtro_actual = rol
-        if rol == "todos":
+        if rol != "todos" and self.filtro_actual == rol:
+            self.filtro_actual = "todos"
+        else:
+            self.filtro_actual = rol
+
+        self._sincronizar_tarjetas_rol()
+
+        if self.filtro_actual == "todos":
             self.lbl_titulo_lista.setText("Usuarios del sistema")
         else:
-            self.lbl_titulo_lista.setText(f"Usuarios del sistema - {rol}")
+            self.lbl_titulo_lista.setText(f"Usuarios del sistema - {self.filtro_actual}")
         self.cargar_usuarios_desde_bd(forzar=True)
 
     def actualizar_metricas_roles(self):

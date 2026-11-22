@@ -164,26 +164,16 @@ class FilaTrabajador(QFrame):
 
 
 class TarjetaMetricaInteractiva(QFrame):
-    """Tarjeta superior interactiva que permite filtrar al hacer clic"""
+    """Tarjeta superior interactiva que permite filtrar y alternar selección al hacer clic"""
     cliqueada = pyqtSignal(str)
 
     def __init__(self, titulo, valor, color_borde, filtro_tipo="", parent=None):
         super().__init__(parent)
         self.filtro_tipo = filtro_tipo
+        self.color_borde = color_borde
+        self.activa = False
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: #ffffff;
-                border-radius: 15px;
-                border-left: 6px solid {color_borde};
-                border-top: none;
-                border-right: none;
-                border-bottom: none;
-            }}
-            QFrame:hover {{
-                background-color: #f8fafc;
-            }}
-        """)
+        self.aplicar_estilo()
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 12, 15, 12)
@@ -196,6 +186,28 @@ class TarjetaMetricaInteractiva(QFrame):
         
         layout.addWidget(self.lbl_tit)
         layout.addWidget(self.lbl_val)
+
+    def aplicar_estilo(self):
+        if self.activa:
+            fondo, hover, borde = "#eef4fd", "#e6f0ff", "2px solid #0833a2"
+        else:
+            fondo, hover, borde = "#ffffff", "#f8fafc", "none"
+        self.setStyleSheet(f"""
+            TarjetaMetricaInteractiva {{
+                background-color: {fondo};
+                border-radius: 15px;
+                border: {borde};
+                border-left: 6px solid {self.color_borde};
+            }}
+            TarjetaMetricaInteractiva:hover {{
+                background-color: {hover};
+            }}
+        """)
+
+    def set_activa(self, valor):
+        if self.activa != valor:
+            self.activa = valor
+            self.aplicar_estilo()
 
     def mousePressEvent(self, event):
         self.cliqueada.emit(self.filtro_tipo)
@@ -231,6 +243,13 @@ class VentanaTrabajadores(QWidget):
         self.card_foraneos = TarjetaMetricaInteractiva("Votantes Foráneos", "0", "#3b6ba3", "foraneos")
         self.card_foraneos.cliqueada.connect(self.cambiar_filtro_metrica)
 
+        self.tarjetas_metricas = {
+            "todos": self.card_total,
+            "fijo": self.card_fijo,
+            "foraneos": self.card_foraneos,
+        }
+        self._sincronizar_tarjetas_metricas()
+
         layout_tarjetas.addWidget(self.card_total)
         layout_tarjetas.addWidget(self.card_fijo)
         layout_tarjetas.addWidget(self.card_foraneos)
@@ -260,8 +279,8 @@ class VentanaTrabajadores(QWidget):
         controles_layout = QHBoxLayout()
         controles_layout.setSpacing(10)
 
-        self.btn_agregar = QPushButton("+ Agregar")
-        self.btn_agregar.setFixedSize(110, 36)
+        self.btn_agregar = QPushButton("＋  Agregar")
+        self.btn_agregar.setFixedSize(115, 36)
         self.btn_agregar.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_agregar.setStyleSheet(ESTILO_BOTON_AZUL)
         self.btn_agregar.clicked.connect(self.abrir_dialogo_agregar)
@@ -434,11 +453,21 @@ class VentanaTrabajadores(QWidget):
         # (por ejemplo, un centro de votación que se modificó); se conservan filtros, búsqueda y selección
         self.cargar_trabajadores_desde_bd()
 
+    def _sincronizar_tarjetas_metricas(self):
+        for clave, tarjeta in self.tarjetas_metricas.items():
+            tarjeta.set_activa(clave == self.filtro_actual)
+
     def cambiar_filtro_metrica(self, tipo_filtro):
-        self.filtro_actual = tipo_filtro
-        if tipo_filtro == "foraneos":
+        if tipo_filtro != "todos" and self.filtro_actual == tipo_filtro:
+            self.filtro_actual = "todos"
+        else:
+            self.filtro_actual = tipo_filtro
+
+        self._sincronizar_tarjetas_metricas()
+
+        if self.filtro_actual == "foraneos":
             self.lbl_titulo_lista.setText("Listado de trabajadores - Votantes Foráneos")
-        elif tipo_filtro == "fijo":
+        elif self.filtro_actual == "fijo":
             self.lbl_titulo_lista.setText("Listado de trabajadores - Contrato Fijo")
         else:
             self.lbl_titulo_lista.setText("Listado de trabajadores")
@@ -581,7 +610,7 @@ class VentanaTrabajadores(QWidget):
 
                 def agregar_fila(trabajador):
                     fila = FilaTrabajador(trabajador)
-                    fila.cliqueado.connect(self.mostrar_detalles_trabajador)
+                    fila.cliqueado.connect(self.alternar_seleccion_trabajador)
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
 
                 for t in trabajadores_normales:
@@ -616,7 +645,10 @@ class VentanaTrabajadores(QWidget):
                 if self.trabajador_seleccionado is not None:
                     for t in trabajadores:
                         if t["cedula"] == self.trabajador_seleccionado["cedula"]:
-                            self.mostrar_detalles_trabajador(t)
+                            self.trabajador_seleccionado = t
+                            self._renderizar_detalles_trabajador(t)
+                            self.marcar_fila_seleccionada(t["cedula"])
+                            self.btn_modificar.setEnabled(True)
                             break
 
                 self.actualizar_metricas_globales()
@@ -624,11 +656,22 @@ class VentanaTrabajadores(QWidget):
         except Exception as e:
             print(f"Error al listar trabajadores desde la BD: {e}")
 
-    def mostrar_detalles_trabajador(self, datos):
-        self.trabajador_seleccionado = datos
+    def alternar_seleccion_trabajador(self, datos):
+        """Selecciona el trabajador y abre la tarjeta lateral; si ya estaba seleccionado, lo deselecciona y cierra"""
+        if (
+            self.trabajador_seleccionado is not None
+            and self.trabajador_seleccionado.get("cedula") == datos.get("cedula")
+            and self.panel_detalles.isVisible()
+        ):
+            self.ocultar_detalles()
+            return
+
+        self.mostrar_detalles_trabajador(datos)
+
+    def _renderizar_detalles_trabajador(self, datos):
         nombre = datos['nombre']
         inicial = nombre[0].upper() if nombre else "?"
-        
+
         self.lbl_avatar.setText(inicial)
         self.lbl_nombre_detalle.setText(nombre)
 
@@ -651,6 +694,10 @@ class VentanaTrabajadores(QWidget):
         <b>Centro de Votación:</b><br>{secuencia_cv}
         """
         self.lbl_detalles_contenido.setText(texto)
+
+    def mostrar_detalles_trabajador(self, datos):
+        self.trabajador_seleccionado = datos
+        self._renderizar_detalles_trabajador(datos)
         self.panel_detalles.show()
 
         # El trabajador queda marcado en la lista y se habilita el botón Modificar
