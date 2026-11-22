@@ -632,6 +632,7 @@ class VentanaVotacion(QWidget):
 
         fila_controles = QHBoxLayout()
         fila_controles.setSpacing(10)
+        fila_controles.setAlignment(Qt.AlignmentFlag.AlignBottom)
 
         self.txt_buscar = QLineEdit()
         self.txt_buscar.setPlaceholderText("Buscar por nombre o dirección...")
@@ -703,17 +704,37 @@ class VentanaVotacion(QWidget):
             }
         """.replace("__FLECHA__", crear_icono_flecha())
 
+        estilo_etiqueta_filtro = "font-size: 11px; color: #000000; border: none; background: transparent; padding-left: 6px;"
+
+        bloque_estado = QWidget()
+        bloque_estado.setStyleSheet("background: transparent; border: none;")
+        layout_estado = QVBoxLayout(bloque_estado)
+        layout_estado.setContentsMargins(0, 0, 0, 0)
+        layout_estado.setSpacing(3)
+        lbl_estado_filtro = QLabel("Estado")
+        lbl_estado_filtro.setStyleSheet(estilo_etiqueta_filtro)
         self.cmb_estado = QComboBox()
         self.cmb_estado.setView(QListView())
         self.cmb_estado.setFixedSize(185, 36)
         self.cmb_estado.setStyleSheet(estilo_combo)
         self.cmb_estado.setToolTip("Filtrar por estado")
+        layout_estado.addWidget(lbl_estado_filtro)
+        layout_estado.addWidget(self.cmb_estado)
 
+        bloque_municipio = QWidget()
+        bloque_municipio.setStyleSheet("background: transparent; border: none;")
+        layout_municipio = QVBoxLayout(bloque_municipio)
+        layout_municipio.setContentsMargins(0, 0, 0, 0)
+        layout_municipio.setSpacing(3)
+        lbl_municipio_filtro = QLabel("Municipio")
+        lbl_municipio_filtro.setStyleSheet(estilo_etiqueta_filtro)
         self.cmb_municipio = QComboBox()
         self.cmb_municipio.setView(QListView())
         self.cmb_municipio.setFixedSize(185, 36)
         self.cmb_municipio.setStyleSheet(estilo_combo)
         self.cmb_municipio.setToolTip("Filtrar por municipio")
+        layout_municipio.addWidget(lbl_municipio_filtro)
+        layout_municipio.addWidget(self.cmb_municipio)
 
         estilo_boton_azul = """
             QPushButton {
@@ -760,8 +781,8 @@ class VentanaVotacion(QWidget):
         self.btn_agregar.clicked.connect(self.agregar_centro)
 
         fila_controles.addWidget(self.txt_buscar, stretch=1)
-        fila_controles.addWidget(self.cmb_estado)
-        fila_controles.addWidget(self.cmb_municipio)
+        fila_controles.addWidget(bloque_estado)
+        fila_controles.addWidget(bloque_municipio)
         fila_controles.addSpacing(10)
         fila_controles.addWidget(self.btn_modificar)
         fila_controles.addWidget(self.btn_agregar)

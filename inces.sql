@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 21-11-2026 a las 04:22:23
+-- Tiempo de generación: 22-11-2026 a las 21:16:22
 -- Versión del servidor: 10.11.16-MariaDB
 -- Versión de PHP: 8.3.36
 
@@ -55,7 +55,11 @@ CREATE TABLE `centros_votacion` (
 INSERT INTO `centros_votacion` (`id_centro_votacion`, `nombre_centro`, `direccion_centro`, `id_parroquia_fk`) VALUES
 (2, 'Liceo Miguel José Sanz', 'Avenida Bolívar , diagonal a la Redoma Juana Ramírez \"La Avanzadora\" y al lado de la Casa de la Cultura, en el centro de Maturín', 1),
 (3, 'Escuela Técnica \"Eloy Palacios Cabello\"', 'Calle Bermúdez, entre Calles 9 y 10. Cerca del Museo Mateo Manaure, laPlaza Bolívar de Maturín y la Iglesia San Simón. En el centro de Maturín', 1),
-(4, 'upt ludovico', 'bello monte', 2);
+(4, 'upt ludovico', 'bello monte', 2),
+(6, 'mesa verde', 'en los guaritos', 1),
+(7, 'udo', 'en los guaritos', 1),
+(9, 'Liceo Francisco Isnardis', 'en el centro', 1),
+(10, 'El Liceo', 'al lado de la universidad', 2);
 
 -- --------------------------------------------------------
 
@@ -178,8 +182,10 @@ CREATE TABLE `novedades_operativas` (
 
 INSERT INTO `novedades_operativas` (`id_novedad`, `cedula_trabajador_fk`, `id_incidencia_fk`, `fecha_inicio`, `fecha_fin`, `justificacion`) VALUES
 (1, 31776780, 2, '2026-11-20', '2026-11-27', 'el gotdito se tomo unas vacaciones para seguir comiendo'),
-(2, 32270636, 1, '2026-11-20', NULL, 'esta mal mal'),
-(3, 32753323, 3, '2026-11-20', NULL, 'el pana esta de permiso ps');
+(2, 32270636, 1, '2026-11-20', '2026-11-21', 'esta mal mal'),
+(3, 32753323, 3, '2026-11-20', NULL, 'el pana esta de permiso ps'),
+(4, 12345678, 3, '2026-11-22', '2026-11-25', 'porque si ps'),
+(5, 61235653, 2, '2026-11-22', NULL, 'vacaciones indefinidas');
 
 -- --------------------------------------------------------
 
@@ -271,10 +277,12 @@ CREATE TABLE `trabajadores` (
 
 INSERT INTO `trabajadores` (`cedula_trabajador`, `nombres`, `apellidos`, `fecha_nacimiento`, `telefono`, `correo`, `sexo`, `direccion`, `id_departamento_fk`, `id_estado_laboral_fk`, `id_centro_votacion_fk`) VALUES
 (123, 'doris', 'farias5', '1999-12-30', '04264840997', 'dorisisidra8@gmail.com', 'Femenino', 'fr', 3, 3, 4),
+(12345533, 'Carlos', 'Macallo', '2001-09-07', '0416-8218373', 'carlos@gmail.com', 'Masculino', 'los guaritos', 4, 2, 7),
 (12345678, 'juan', 'andres', '1900-01-02', '123-12345', 'juansito@gmail.com', 'Masculino', 'por ahi', 4, 2, 2),
 (31776780, 'Ángel', 'Malavé', '2006-11-18', '0412-1234567', 'angel@gmail.com', 'Masculino', 'las Cocuizas', 4, 2, 2),
 (32270636, 'Rolando Alfonzo', 'Reyes Perez', '2006-11-18', '04128335530', 'alfonzoreyes72@gmail.com', 'Masculino', 'Invasión de la Puente, Calle 10', 4, 2, 3),
 (32753323, 'Jesús', 'López', '2006-11-18', '0412-1234567', 'jesus@gmail.com', 'Masculino', 'El Elevado de Maturín', 3, 2, 2),
+(61235653, 'Maria', 'Lopez', '1996-05-23', '0412-1234567', 'Maria@gmial.com', 'Femenino', 'el centro', 3, 2, 2),
 (338614649, 'YUSLEN ANTONELA', 'FACURE PEREZ', '2010-10-10', '04128614649', '', 'Femenino', 'la libertad', 4, 3, 3);
 
 -- --------------------------------------------------------
@@ -290,17 +298,21 @@ CREATE TABLE `usuarios` (
   `cedula_trabajador_fk` int(11) NOT NULL,
   `id_rol_fk` int(11) NOT NULL,
   `ultimo_acceso` datetime DEFAULT NULL,
-  `bloqueado` tinyint(1) NOT NULL DEFAULT 0
+  `bloqueado` tinyint(1) NOT NULL DEFAULT 0,
+  `en_linea` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `usuarios`
 --
 
-INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contraseña`, `cedula_trabajador_fk`, `id_rol_fk`, `ultimo_acceso`, `bloqueado`) VALUES
-(1, 'Rolando', '1234', 32270636, 1, '2026-11-19 11:17:39', 0),
-(2, 'Jesus', '1234', 32753323, 2, '2026-11-19 11:16:13', 0),
-(3, 'Angel', '1234', 31776780, 3, '2026-11-19 11:16:40', 0);
+INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contraseña`, `cedula_trabajador_fk`, `id_rol_fk`, `ultimo_acceso`, `bloqueado`, `en_linea`) VALUES
+(1, 'Rolando', '1234', 32270636, 1, '2026-11-21 22:42:19', 0, 0),
+(2, 'Jesus', '1234', 32753323, 2, '2026-11-21 22:33:14', 0, 0),
+(3, 'Angel', '1234', 31776780, 3, '2026-11-19 11:16:40', 0, 0),
+(6, 'maria', '1234', 61235653, 3, NULL, 0, 0),
+(7, 'carlos', '1234', 12345533, 2, NULL, 0, 0),
+(8, 'juan', '1234', 12345678, 2, NULL, 0, 0);
 
 --
 -- Índices para tablas volcadas
@@ -409,7 +421,7 @@ ALTER TABLE `asistencias`
 -- AUTO_INCREMENT de la tabla `centros_votacion`
 --
 ALTER TABLE `centros_votacion`
-  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id_centro_votacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT de la tabla `departamentos`
@@ -445,7 +457,7 @@ ALTER TABLE `municipios`
 -- AUTO_INCREMENT de la tabla `novedades_operativas`
 --
 ALTER TABLE `novedades_operativas`
-  MODIFY `id_novedad` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id_novedad` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `parroquias`
@@ -463,7 +475,7 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT de la tabla `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- Restricciones para tablas volcadas

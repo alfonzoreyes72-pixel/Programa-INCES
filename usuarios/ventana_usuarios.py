@@ -55,6 +55,39 @@ def cargar_pixmap_svg(clave, alto):
     return pixmap
 
 
+ESTILO_SCROLL = """
+    QScrollArea {
+        border: none;
+        background: transparent;
+    }
+    QScrollArea > QWidget {
+        background: transparent;
+    }
+    QScrollArea > QWidget > QWidget {
+        background: transparent;
+    }
+    QScrollBar:vertical {
+        background: transparent;
+        width: 8px;
+        margin: 2px 0px 2px 0px;
+        border: none;
+    }
+    QScrollBar::handle:vertical {
+        background: #d3d8e0;
+        border-radius: 4px;
+        min-height: 30px;
+    }
+    QScrollBar::handle:vertical:hover {
+        background: #aeb6c2;
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        height: 0px;
+        background: none;
+        border: none;
+    }
+"""
+
+
 # Importación del gestor de base de datos
 try:
     from database import GestorBD
@@ -586,12 +619,14 @@ class VentanaUsuarios(QWidget):
         # Scroll Area para la lista de usuarios
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setStyleSheet(ESTILO_SCROLL)
 
         self.contenedor_filas = QWidget()
         self.contenedor_filas.setStyleSheet("background: transparent; border: none;")
         self.layout_filas = QVBoxLayout(self.contenedor_filas)
-        self.layout_filas.setContentsMargins(0, 0, 0, 0)
+        self.layout_filas.setContentsMargins(0, 0, 8, 0)
         self.layout_filas.setSpacing(8)
         self.layout_filas.addStretch()
 

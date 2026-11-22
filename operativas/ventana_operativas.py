@@ -220,10 +220,8 @@ def texto_dias(n):
 
 
 def iniciales(nombre):
-    partes = str(nombre).split()
-    if not partes:
-        return "?"
-    return (partes[0][0] + (partes[1][0] if len(partes) > 1 else "")).upper()
+    texto = str(nombre).strip()
+    return texto[0].upper() if texto else "?"
 
 
 def describir_periodo(datos, hoy):
@@ -574,6 +572,7 @@ class VentanaOperativas(QWidget):
 
         fila_controles = QHBoxLayout()
         fila_controles.setSpacing(10)
+        fila_controles.setAlignment(Qt.AlignmentFlag.AlignBottom)
 
         self.txt_buscar = QLineEdit()
         self.txt_buscar.setPlaceholderText("Buscar por trabajador o cédula...")
@@ -644,12 +643,30 @@ class VentanaOperativas(QWidget):
             }
         """.replace("__FLECHA__", crear_icono_flecha())
 
+        estilo_etiqueta_filtro = "font-size: 11px; color: #000000; border: none; background: transparent; padding-left: 6px;"
+
+        bloque_tipo = QWidget()
+        bloque_tipo.setStyleSheet("background: transparent; border: none;")
+        layout_tipo = QVBoxLayout(bloque_tipo)
+        layout_tipo.setContentsMargins(0, 0, 0, 0)
+        layout_tipo.setSpacing(3)
+        lbl_tipo_filtro = QLabel("Tipo de incidencia")
+        lbl_tipo_filtro.setStyleSheet(estilo_etiqueta_filtro)
         self.cmb_tipo = QComboBox()
         self.cmb_tipo.setView(QListView())
         self.cmb_tipo.setFixedSize(185, 36)
         self.cmb_tipo.setStyleSheet(estilo_combo)
         self.cmb_tipo.setToolTip("Filtrar por tipo de novedad")
+        layout_tipo.addWidget(lbl_tipo_filtro)
+        layout_tipo.addWidget(self.cmb_tipo)
 
+        bloque_estado = QWidget()
+        bloque_estado.setStyleSheet("background: transparent; border: none;")
+        layout_estado = QVBoxLayout(bloque_estado)
+        layout_estado.setContentsMargins(0, 0, 0, 0)
+        layout_estado.setSpacing(3)
+        lbl_estado_filtro = QLabel("Estado")
+        lbl_estado_filtro.setStyleSheet(estilo_etiqueta_filtro)
         self.cmb_estado = QComboBox()
         self.cmb_estado.setView(QListView())
         self.cmb_estado.setFixedSize(185, 36)
@@ -660,6 +677,8 @@ class VentanaOperativas(QWidget):
         self.cmb_estado.addItem("Sin fecha de fin", "sin_fin")
         self.cmb_estado.addItem("Programada", "programada")
         self.cmb_estado.addItem("Finalizada", "finalizada")
+        layout_estado.addWidget(lbl_estado_filtro)
+        layout_estado.addWidget(self.cmb_estado)
 
         self.btn_nueva = QPushButton("＋  Nueva novedad")
         self.btn_nueva.setFixedHeight(36)
@@ -669,8 +688,8 @@ class VentanaOperativas(QWidget):
         self.btn_nueva.clicked.connect(self.nueva_novedad)
 
         fila_controles.addWidget(self.txt_buscar, stretch=1)
-        fila_controles.addWidget(self.cmb_tipo)
-        fila_controles.addWidget(self.cmb_estado)
+        fila_controles.addWidget(bloque_tipo)
+        fila_controles.addWidget(bloque_estado)
         fila_controles.addSpacing(10)
         fila_controles.addWidget(self.btn_nueva)
         layout_panel.addLayout(fila_controles)
@@ -980,6 +999,14 @@ class VentanaOperativas(QWidget):
         return panel
 
     def seleccionar_trabajador(self, datos):
+        if (
+            self.cedula_seleccionada is not None
+            and self.cedula_seleccionada == datos.get("cedula")
+            and self.panel_historial.isVisible()
+        ):
+            self.cerrar_historial()
+            return
+
         self.cedula_seleccionada = datos["cedula"]
         self.marcar_filas()
         self.mostrar_historial(self.cedula_seleccionada)

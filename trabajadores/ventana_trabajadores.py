@@ -1,12 +1,13 @@
 import sys
 import os
 import re
+import unicodedata
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
-    QLineEdit, QPushButton, QLabel, QScrollArea, QSizePolicy, QDialog
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFrame,
+    QLineEdit, QPushButton, QLabel, QScrollArea, QSizePolicy, QDialog, QMenu
 )
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
-from PyQt6.QtGui import QIcon, QPixmap, QPainter
+from PyQt6.QtCore import Qt, QSize, QPoint, pyqtSignal
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QAction
 from PyQt6.QtSvg import QSvgRenderer
 
 # Importación de la ventana modal de registro
@@ -30,6 +31,13 @@ def formatear_cedula(valor):
         return f"{int(valor):,}".replace(",", ".")
     except (TypeError, ValueError):
         return str(valor)
+
+
+def _clave_alfabetica(texto):
+    """Normaliza nombre/apellido sin tildes para ordenar de forma consistente"""
+    normalizado = unicodedata.normalize("NFD", str(texto or ""))
+    sin_tildes = "".join(c for c in normalizado if unicodedata.category(c) != "Mn")
+    return sin_tildes.strip().lower()
 
 
 # ==================== ICONOS (rutas autocalculables) ====================
@@ -80,6 +88,39 @@ def cargar_pixmap_svg(clave, alto):
     return pixmap
 
 
+class IconoFiltro(QLabel):
+    """Icono de filtro limpio sobre el fondo blanco sin apariencia de botón"""
+    cliqueado = pyqtSignal()
+
+    def __init__(self, clave="iconofiltro", alto=18, parent=None):
+        super().__init__(parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip("Opciones de orden y filtro")
+        self.setStyleSheet("background: transparent; border: none; padding: 0px;")
+
+        pixmap = cargar_pixmap_svg(clave, alto)
+        if pixmap:
+            self.setPixmap(pixmap)
+            ancho = int(round(pixmap.width() / pixmap.devicePixelRatio()))
+            self.setFixedSize(max(24, ancho + 6), 36)
+            self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        else:
+            self.setText("≡")
+            self.setFixedSize(28, 36)
+            self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.setStyleSheet(
+                "background: transparent; border: none; color: #0833a2; "
+                "font-size: 18px; font-weight: bold;"
+            )
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.cliqueado.emit()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+
 ESTILO_BOTON_AZUL = """
     QPushButton {
         background-color: #0833a2;
@@ -101,6 +142,38 @@ ESTILO_BOTON_AZUL = """
     }
 """
 
+ESTILO_SCROLL = """
+    QScrollArea {
+        border: none;
+        background: transparent;
+    }
+    QScrollArea > QWidget {
+        background: transparent;
+    }
+    QScrollArea > QWidget > QWidget {
+        background: transparent;
+    }
+    QScrollBar:vertical {
+        background: transparent;
+        width: 8px;
+        margin: 2px 0px 2px 0px;
+        border: none;
+    }
+    QScrollBar::handle:vertical {
+        background: #d3d8e0;
+        border-radius: 4px;
+        min-height: 30px;
+    }
+    QScrollBar::handle:vertical:hover {
+        background: #aeb6c2;
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        height: 0px;
+        background: none;
+        border: none;
+    }
+"""
+
 
 class FilaTrabajador(QFrame):
     """Componente interactivo para cada fila de trabajador en la lista"""
@@ -111,7 +184,7 @@ class FilaTrabajador(QFrame):
         self.datos = datos_trabajador
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(50)
-        
+
         # Trabajador retirado: fila en rojo pálido y nombre en rojo
         self.es_retirado = "retirado" in str(self.datos.get("estado_laboral", "")).lower()
         self.seleccionada = False
@@ -123,7 +196,7 @@ class FilaTrabajador(QFrame):
 
         self.lbl_nombre = QLabel(self.datos["nombre"])
         self.lbl_nombre.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {color_nombre}; border: none; background: transparent;")
-        
+
         self.lbl_cedula = QLabel(formatear_cedula(self.datos["cedula"]))
         self.lbl_cedula.setStyleSheet("font-size: 14px; font-weight: bold; color: #555555; border: none; background: transparent;")
 
@@ -174,16 +247,16 @@ class TarjetaMetricaInteractiva(QFrame):
         self.activa = False
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.aplicar_estilo()
-        
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 12, 15, 12)
-        
+
         self.lbl_tit = QLabel(titulo)
         self.lbl_tit.setStyleSheet("font-size: 12px; font-weight: bold; color: #777777; border: none; background: transparent;")
-        
+
         self.lbl_val = QLabel(valor)
         self.lbl_val.setStyleSheet(f"font-size: 22px; font-weight: bold; color: {color_borde}; border: none; background: transparent;")
-        
+
         layout.addWidget(self.lbl_tit)
         layout.addWidget(self.lbl_val)
 
@@ -215,11 +288,21 @@ class TarjetaMetricaInteractiva(QFrame):
 
 
 class VentanaTrabajadores(QWidget):
+    OPCIONES_FILTRO = [
+        ("alfabetico_az", "Orden alfabético (A – Z)"),
+        ("alfabetico_za", "Orden alfabético (Z – A)"),
+        ("mas_antiguos", "Más antiguos"),
+        ("mas_recientes", "Más recientes"),
+        ("retirados", "Trabajadores retirados"),
+    ]
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
         self.trabajador_seleccionado = None
         self.filtro_actual = "todos"
+        self.criterio_lista = "alfabetico_az"
+        self._acciones_filtro = {}
 
         layout_principal = QHBoxLayout(self)
         layout_principal.setContentsMargins(20, 20, 20, 20)
@@ -265,7 +348,7 @@ class VentanaTrabajadores(QWidget):
                 border: none;
             }
         """)
-        
+
         self.panel_listado.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         layout_panel = QVBoxLayout(self.panel_listado)
@@ -306,6 +389,10 @@ class VentanaTrabajadores(QWidget):
 
         controles_layout.addStretch()
 
+        self.btn_filtro = IconoFiltro("iconofiltro", 18)
+        self.btn_filtro.cliqueado.connect(self.abrir_menu_filtro)
+        controles_layout.addWidget(self.btn_filtro)
+
         self.txt_buscar = QLineEdit()
         self.txt_buscar.setPlaceholderText("Buscar por cédula o nombre...")
         self.txt_buscar.setFixedSize(240, 36)
@@ -336,12 +423,14 @@ class VentanaTrabajadores(QWidget):
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setStyleSheet(ESTILO_SCROLL)
 
         self.contenedor_filas = QWidget()
         self.contenedor_filas.setStyleSheet("background: transparent; border: none;")
         self.layout_filas = QVBoxLayout(self.contenedor_filas)
-        self.layout_filas.setContentsMargins(0, 0, 0, 0)
+        self.layout_filas.setContentsMargins(0, 0, 8, 0)
         self.layout_filas.setSpacing(5)
         self.layout_filas.addStretch()
 
@@ -362,7 +451,7 @@ class VentanaTrabajadores(QWidget):
                 border: none;
             }
         """)
-        
+
         layout_detalles = QVBoxLayout(self.panel_detalles)
         layout_detalles.setContentsMargins(20, 20, 20, 20)
         layout_detalles.setSpacing(12)
@@ -398,7 +487,7 @@ class VentanaTrabajadores(QWidget):
                 border-radius: 37px;
             }
         """)
-        
+
         avatar_layout = QHBoxLayout()
         avatar_layout.addStretch()
         avatar_layout.addWidget(self.lbl_avatar)
@@ -419,16 +508,14 @@ class VentanaTrabajadores(QWidget):
 
         self.scroll_detalles = QScrollArea()
         self.scroll_detalles.setWidgetResizable(True)
-        self.scroll_detalles.setStyleSheet("""
-            QScrollArea { border: none; background: transparent; }
-            QScrollBar:vertical { background: #f4f6f9; width: 8px; border-radius: 4px; margin: 0px; }
-            QScrollBar::handle:vertical { background: #c0c0c0; border-radius: 4px; min-height: 20px; }
-        """)
+        self.scroll_detalles.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_detalles.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_detalles.setStyleSheet(ESTILO_SCROLL)
 
         self.contenido_scroll_detalles = QWidget()
         self.contenido_scroll_detalles.setStyleSheet("background: transparent; border: none;")
         layout_scroll_detalles = QVBoxLayout(self.contenido_scroll_detalles)
-        layout_scroll_detalles.setContentsMargins(0, 0, 5, 0)
+        layout_scroll_detalles.setContentsMargins(0, 0, 8, 0)
         layout_scroll_detalles.setSpacing(10)
 
         self.lbl_detalles_contenido = QLabel()
@@ -440,12 +527,88 @@ class VentanaTrabajadores(QWidget):
 
         self.scroll_detalles.setWidget(self.contenido_scroll_detalles)
         layout_detalles.addWidget(self.scroll_detalles)
-        
+
         layout_principal.addWidget(self.panel_detalles)
         self.panel_detalles.hide()
 
         self.actualizar_metricas_globales()
         self.cargar_trabajadores_desde_bd()
+
+    def abrir_menu_filtro(self):
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #ffffff;
+                border: 1px solid #dcdcdc;
+                border-radius: 12px;
+                padding: 6px;
+                color: #333333;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QMenu::item {
+                padding: 8px 16px;
+                border-radius: 8px;
+                color: #333333;
+            }
+            QMenu::item:selected {
+                background-color: #e6f0ff;
+                color: #0833a2;
+            }
+            QMenu::item:checked {
+                color: #0833a2;
+            }
+        """)
+        self._acciones_filtro = {}
+        for clave, etiqueta in self.OPCIONES_FILTRO:
+            accion = QAction(etiqueta, menu)
+            accion.setCheckable(True)
+            accion.setChecked(self.criterio_lista == clave)
+            accion.triggered.connect(lambda _checked=False, c=clave: self.seleccionar_criterio_lista(c))
+            menu.addAction(accion)
+            self._acciones_filtro[clave] = accion
+
+        pos = self.btn_filtro.mapToGlobal(QPoint(0, self.btn_filtro.height() + 4))
+        menu.exec(pos)
+
+    def seleccionar_criterio_lista(self, criterio):
+        self.criterio_lista = criterio
+        self._actualizar_titulo_lista()
+        self.cargar_trabajadores_desde_bd()
+
+    def _actualizar_titulo_lista(self):
+        base = "Listado de trabajadores"
+        if self.filtro_actual == "foraneos":
+            base = "Listado de trabajadores - Votantes Foráneos"
+        elif self.filtro_actual == "fijo":
+            base = "Listado de trabajadores - Contrato Fijo"
+
+        if self.criterio_lista == "retirados":
+            self.lbl_titulo_lista.setText(f"{base} - Retirados")
+        else:
+            self.lbl_titulo_lista.setText(base)
+
+    def _ordenar_trabajadores(self, trabajadores):
+        if self.criterio_lista == "alfabetico_az":
+            return sorted(
+                trabajadores,
+                key=lambda t: (
+                    _clave_alfabetica(t.get("nombre", "")),
+                    str(t.get("cedula", "")),
+                ),
+            )
+        if self.criterio_lista == "alfabetico_za":
+            return sorted(
+                trabajadores,
+                key=lambda t: (
+                    _clave_alfabetica(t.get("nombre", "")),
+                    str(t.get("cedula", "")),
+                ),
+                reverse=True,
+            )
+        if self.criterio_lista == "mas_antiguos":
+            return list(reversed(trabajadores))
+        return list(trabajadores)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -464,13 +627,7 @@ class VentanaTrabajadores(QWidget):
             self.filtro_actual = tipo_filtro
 
         self._sincronizar_tarjetas_metricas()
-
-        if self.filtro_actual == "foraneos":
-            self.lbl_titulo_lista.setText("Listado de trabajadores - Votantes Foráneos")
-        elif self.filtro_actual == "fijo":
-            self.lbl_titulo_lista.setText("Listado de trabajadores - Contrato Fijo")
-        else:
-            self.lbl_titulo_lista.setText("Listado de trabajadores")
+        self._actualizar_titulo_lista()
         self.cargar_trabajadores_desde_bd()
 
     def actualizar_metricas_globales(self):
@@ -479,7 +636,7 @@ class VentanaTrabajadores(QWidget):
             conexion = db.obtener_conexion()
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
-                
+
                 cursor.execute("SELECT COUNT(*) AS total FROM trabajadores")
                 res_total = cursor.fetchone()
                 self.card_total.lbl_val.setText(str(res_total['total'] if res_total else 0))
@@ -520,7 +677,7 @@ class VentanaTrabajadores(QWidget):
             conexion = db.obtener_conexion()
             if conexion:
                 cursor = conexion.cursor(dictionary=True)
-                
+
                 # Asegurar que la tabla departamentos exista por seguridad
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS departamentos (
@@ -577,7 +734,7 @@ class VentanaTrabajadores(QWidget):
                     LEFT JOIN estados e ON m.id_estado_fk = e.id_estado
                     WHERE 1=1
                 """
-                
+
                 params = []
 
                 if self.filtro_actual == "foraneos":
@@ -613,33 +770,46 @@ class VentanaTrabajadores(QWidget):
                     fila.cliqueado.connect(self.alternar_seleccion_trabajador)
                     self.layout_filas.insertWidget(self.layout_filas.count() - 1, fila)
 
-                for t in trabajadores_normales:
-                    agregar_fila(t)
-
-                if trabajadores_retirados:
-                    separador_retirados = QWidget()
-                    separador_retirados.setStyleSheet("background: transparent;")
-                    sep_layout = QHBoxLayout(separador_retirados)
-                    sep_layout.setContentsMargins(4, 14, 4, 5)
-                    sep_layout.setSpacing(10)
-                    linea_izq = QFrame()
-                    linea_izq.setFixedHeight(1)
-                    linea_izq.setStyleSheet("background-color: #dfe3e9; border: none;")
-                    titulo_retirados = QLabel("Trabajadores retirados")
-                    titulo_retirados.setStyleSheet(
-                        "font-size: 11px; font-weight: bold; color: #8b929d; "
-                        "background: transparent; border: none;"
-                    )
-                    linea_der = QFrame()
-                    linea_der.setFixedHeight(1)
-                    linea_der.setStyleSheet("background-color: #dfe3e9; border: none;")
-                    sep_layout.addWidget(linea_izq, 1)
-                    sep_layout.addWidget(titulo_retirados)
-                    sep_layout.addWidget(linea_der, 1)
-                    self.layout_filas.insertWidget(self.layout_filas.count() - 1, separador_retirados)
-
+                if self.criterio_lista == "retirados":
                     for t in trabajadores_retirados:
                         agregar_fila(t)
+                    if not trabajadores_retirados:
+                        lbl_sin_retirados = QLabel("No hay trabajadores retirados que coincidan con los filtros actuales.")
+                        lbl_sin_retirados.setWordWrap(True)
+                        lbl_sin_retirados.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        lbl_sin_retirados.setStyleSheet(
+                            "font-size: 13px; font-weight: bold; color: #777777; "
+                            "border: none; background: transparent; padding: 30px;"
+                        )
+                        self.layout_filas.insertWidget(0, lbl_sin_retirados)
+                else:
+                    for t in self._ordenar_trabajadores(trabajadores_normales):
+                        agregar_fila(t)
+
+                    if trabajadores_retirados:
+                        separador_retirados = QWidget()
+                        separador_retirados.setStyleSheet("background: transparent;")
+                        sep_layout = QHBoxLayout(separador_retirados)
+                        sep_layout.setContentsMargins(4, 14, 4, 5)
+                        sep_layout.setSpacing(10)
+                        linea_izq = QFrame()
+                        linea_izq.setFixedHeight(1)
+                        linea_izq.setStyleSheet("background-color: #dfe3e9; border: none;")
+                        titulo_retirados = QLabel("Trabajadores retirados")
+                        titulo_retirados.setStyleSheet(
+                            "font-size: 11px; font-weight: bold; color: #8b929d; "
+                            "background: transparent; border: none;"
+                        )
+                        linea_der = QFrame()
+                        linea_der.setFixedHeight(1)
+                        linea_der.setStyleSheet("background-color: #dfe3e9; border: none;")
+                        sep_layout.addWidget(linea_izq, 1)
+                        sep_layout.addWidget(titulo_retirados)
+                        sep_layout.addWidget(linea_der, 1)
+                        self.layout_filas.insertWidget(self.layout_filas.count() - 1, separador_retirados)
+
+                        for t in self._ordenar_trabajadores(trabajadores_retirados):
+                            agregar_fila(t)
 
                 # Si el trabajador seleccionado sigue en la lista, se mantiene marcado y se refrescan sus datos
                 if self.trabajador_seleccionado is not None:
