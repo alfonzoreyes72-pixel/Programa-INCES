@@ -130,17 +130,14 @@ TEXTO_ESTADO_NOVEDAD = {"en_curso": "En curso", "programada": "Programada", "fin
 # Un usuario cuenta como "en línea" si su programa dio señal de vida en los últimos 90 segundos
 CONDICION_EN_LINEA = "(u.ultima_actividad IS NOT NULL AND u.ultima_actividad >= NOW() - INTERVAL 90 SECOND)"
 
-# Iconos que se modelarán después. Se buscan en la carpeta 'imagenes' sin importar guiones, espacios
-# o mayúsculas; si el archivo todavía no existe, simplemente no se muestra.
-#   icono-reporte-trabajadores.svg   icono-reporte-asistencias.svg   icono-reporte-usuarios.svg
-#   icono-reporte-novedades.svg      icono-generar-reporte.svg        icono-pdf.svg
-#   icono-excel.svg                  icono-columnas.svg               icono-limpiar.svg
-#   icono-calendario.svg             icono-lupa.svg (ya existe)
+# Iconos buscados en la carpeta 'imagenes' sin importar guiones, paréntesis, espacios o mayúsculas:
+#   icono-trabajadores(azul).svg   icono-asistencias(azul).svg
+#   icono-usuarios(azul).svg       icono-operativas(azul).svg
 ICONOS = {
-    "trabajadores": "iconoreportetrabajadores",
-    "asistencias": "iconoreporteasistencias",
-    "usuarios": "iconoreporteusuarios",
-    "novedades": "iconoreportenovedades",
+    "trabajadores": "iconotrabajadoresazul",
+    "asistencias": "iconoasistenciasazul",
+    "usuarios": "iconousuariosazul",
+    "novedades": "iconooperativasazul",
     "generar": "iconogenerarreporte",
     "pdf": "iconopdf",
     "excel": "iconoexcel",
@@ -163,7 +160,7 @@ _cache_iconos = {}
 
 
 def _clave_nombre(texto):
-    """'icono-lupa.svg' -> 'iconolupa' (ignora signos, espacios y mayúsculas)"""
+    """'icono-trabajadores(azul).svg' -> 'iconotrabajadoresazul' (ignora signos, espacios y mayúsculas)"""
     return re.sub(r"[^a-z0-9]", "", os.path.splitext(str(texto))[0].lower())
 
 
@@ -450,7 +447,6 @@ class TarjetaTipoReporte(QFrame):
         layout.setContentsMargins(15, 10, 15, 10)
         layout.setSpacing(12)
 
-        # Espacio reservado para el icono del reporte (se llena cuando exista el archivo SVG)
         self.lbl_icono = QLabel()
         self.lbl_icono.setFixedSize(30, 30)
         self.lbl_icono.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -972,8 +968,6 @@ class VentanaReportes(QWidget):
 
     # ----- Asistencias -----
     def _consultar_asistencias(self, buscar):
-        # PENDIENTE: cuando el módulo de asistencias esté terminado, aquí se pueden agregar los
-        # estados (tardanza, inasistencia, etc.) y sus filtros. La consulta ya funciona con la tabla actual.
         f = self.filtros["asistencias"]
         desde = f["desde"].date().toPyDate()
         hasta = f["hasta"].date().toPyDate()
@@ -1017,12 +1011,11 @@ class VentanaReportes(QWidget):
     # ----- Usuarios -----
     def _consultar_usuarios(self, buscar):
         f = self.filtros["usuarios"]
-        existentes = self._columnas_tabla("usuarios")  # Estas columnas se crean desde otras ventanas
+        existentes = self._columnas_tabla("usuarios")
         ultimo_acceso = "u.ultimo_acceso" if "ultimo_acceso" in existentes else "NULL"
         bloqueado = "COALESCE(u.bloqueado, 0)" if "bloqueado" in existentes else "0"
         en_linea = CONDICION_EN_LINEA if "ultima_actividad" in existentes else "0"
 
-        # Nunca se incluye la contraseña en un reporte
         sql = f"""
             SELECT u.nombre_usuario, CONCAT(t.nombres, ' ', t.apellidos) AS trabajador, t.cedula_trabajador,
                    r.nombre_rol, {ultimo_acceso} AS ultimo_acceso, {bloqueado} AS bloqueado, {en_linea} AS en_linea
@@ -1081,7 +1074,6 @@ class VentanaReportes(QWidget):
             raise ValueError("La fecha «Desde» no puede ser posterior a «Hasta».")
 
         color = "COALESCE(i.color, 'gris')" if "color" in self._columnas_tabla("incidencias") else "'gris'"
-        # Entran todas las novedades que coinciden con el rango, incluidas las que siguen abiertas
         sql = f"""
             SELECT t.cedula_trabajador, CONCAT(t.nombres, ' ', t.apellidos) AS trabajador, d.nombre_departamento,
                    i.tipo_incidencia AS tipo, {color} AS color, n.fecha_inicio, n.fecha_fin, n.justificacion

@@ -204,7 +204,8 @@ class VentanaPrincipal(QMainWindow):
         self.stacked_widget.setStyleSheet("background-color: #bfbdbe;")
 
         self.pagina_inicio = VentanaInicio()
-        self.pagina_perfil = VentanaPerfil()
+        self.pagina_perfil = VentanaPerfil(id_usuario=self.id_usuario, permisos=self.permisos)
+        self.pagina_perfil.cerrar_sesion_solicitado.connect(self.cerrar_sesion)
         self.pagina_usuarios = VentanaUsuarios(id_usuario_actual=self.id_usuario)
         self.pagina_trabajadores = VentanaTrabajadores()
         self.pagina_votacion = VentanaVotacion()
